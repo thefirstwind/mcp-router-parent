@@ -1,0 +1,60 @@
+spring:
+  main:
+    banner-mode: off
+  application:
+    name: person-mcp-server
+  ai:
+    mcp:
+      server:
+        name: person-mcp-server
+        version: 1.0.0
+        description: "Person management MCP server with Spring AI tools"
+        type: ASYNC  # Recommended for reactive applications
+        instructions: "This reactive server provides person management tools and resources"
+        sse-message-endpoint: /mcp/messages
+        capabilities:
+          tool: true
+          resource: true
+          prompt: true
+          completion: true
+    alibaba:
+      mcp:
+        nacos:
+          namespace: public
+          enabled: true
+          server-addr: 127.0.0.1:8848
+          username: nacos
+          password: nacos
+          registry:
+            enabled: true
+            service-group: mcp-server
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:schema.sql
+      data-locations: classpath:data.sql
+      
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: none
+    show-sql: true
+    defer-datasource-initialization: true
+    
+  datasource:
+    url: jdbc:h2:mem:testdb
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: password
+    
+  h2:
+    console:
+      enabled: true
+
+logging:
+  level:
+    org.springframework.ai: DEBUG
+    com.nacos.mcp.server: DEBUG
+
+server:
+  port: 8060 

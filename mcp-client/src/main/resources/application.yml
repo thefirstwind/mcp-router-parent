@@ -1,0 +1,32 @@
+spring:
+  ai:
+    deepseek:
+      api-key: "sk-c82a3957785d4c48b08a62e0e707ecf2"
+      base-url: "https://api.deepseek.com"
+      chat:
+        options:
+          model: deepseek-chat
+        
+    mcp:
+      client:
+        enabled: true
+        sse:
+          connections:
+            person-mcp-server:
+              url: http://localhost:8060
+              request-timeout: 30s
+
+logging:
+  level:
+    org.springframework.ai: DEBUG
+    com.nacos.mcp.client: DEBUG
+    org.springframework.ai.mcp: DEBUG
+
+server:
+  port: 8070
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info 
