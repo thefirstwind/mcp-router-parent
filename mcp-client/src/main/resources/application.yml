@@ -6,15 +6,17 @@ spring:
       chat:
         options:
           model: deepseek-chat
-        
+    
+    # 暂时禁用MCP客户端，避免连接问题
     mcp:
       client:
-        enabled: true
-        sse:
-          connections:
-            person-mcp-server:
-              url: http://localhost:8060
-              request-timeout: 30s
+        enabled: false
+        # sse:
+        #   connections:
+        #     nacos-mcp-router:
+        #       url: http://localhost:8050/mcp/jsonrpc
+        #       request-timeout: 30s
+        #       transport: sse
 
 logging:
   level:
