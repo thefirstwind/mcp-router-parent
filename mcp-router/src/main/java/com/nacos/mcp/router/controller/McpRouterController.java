@@ -137,18 +137,10 @@ public class McpRouterController {
      * Register a MCP server to Nacos
      */
     @PostMapping("/register")
-    public Mono<ResponseEntity<McpServer>> registerMcpServer(@Valid @RequestBody McpServerRegistrationRequest request) {
-        log.info("Registering MCP server: {}", request.getServerName());
-        return mcpServerService.registerMcpServerWithTools(request)
-                .map(server -> ResponseEntity.status(201).body(server))
-                .onErrorResume(throwable -> {
-                    log.error("Failed to register MCP server {}: {}", request.getServerName(), throwable.getMessage());
-                    return Mono.just(ResponseEntity.status(500)
-                            .body(McpServer.builder()
-                                    .name(request.getServerName())
-                                    .status(McpServer.ServerStatus.ERROR)
-                                    .build()));
-                });
+    public ResponseEntity<String> register(@RequestBody McpServerRegistrationRequest registrationRequest) {
+        log.info("Received registration request: {}", registrationRequest);
+        mcpServerService.registerServer(registrationRequest);
+        return ResponseEntity.ok("Server registered successfully");
     }
 
     /**

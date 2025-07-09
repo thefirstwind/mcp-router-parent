@@ -1,0 +1,256 @@
+spring:
+  application:
+    name: mcp-router
+  cloud:
+    nacos:
+      discovery:
+        enabled: false
+      config:
+        enabled: false
+# Nacos MCP Router Application Configuration
+# Spring AI MCP Integration Configuration
+
+server:
+  port: 8050
+  servlet:
+    context-path: /
+  error:
+    include-message: always
+    include-binding-errors: always
+
+spring:
+  main:
+    banner-mode: "off"
+  # Jackson Configuration for Date/Time serialization
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+      fail-on-empty-beans: false
+    time-zone: UTC
+    date-format: yyyy-MM-dd'T'HH:mm:ss.SSS'Z'
+    default-property-inclusion: NON_NULL
+    deserialization:
+        fail-on-unknown-properties: false
+        accept-single-value-as-array: true
+  # Spring AI MCP Configuration with DeepSeek
+  ai:
+    # Configure to use DeepSeek as OpenAI-compatible API
+    openai:
+      api-key: "dummy-key-not-used"  # DeepSeek will be used instead
+      base-url: "https://api.deepseek.com"
+      chat:
+        enabled: false  # Disable OpenAI chat model
+    # DeepSeek Configuration
+    deepseek:
+      api-key: "sk-c82a3957785d4c48b08a62e0e707ecf2"
+      api-base: "https://api.deepseek.com"
+      chat:
+        model: "deepseek-chat"
+        max-tokens: 4000
+        temperature: 0.7
+    mcp:
+      server:
+        # Server Identity
+        name: "nacos-mcp-router"
+        version: "1.0.0"
+        description: "Nacos-based MCP Server Router for distributed MCP server management"
+        
+        # Transport Configuration
+        transport:
+          type: "sse"  # Server-Sent Events
+          endpoint: "/mcp/sse"
+          timeout: 30000  # 30 seconds
+          max-connections: 100
+          
+        # MCP Protocol Capabilities
+        capabilities:
+          # Tools capability
+          tools:
+            list-changed: true
+            progress: true
+            cancel: true
+            
+          # Resources capability  
+          resources:
+            subscribe: true
+            list-changed: true
+            
+          # Prompts capability
+          prompts:
+            list-changed: true
+            
+          # Logging capability
+          logging:
+            level: "INFO"
+            
+          # Sampling capability
+          sampling: {}
+          
+        # Function Calling Configuration for Spring AI
+        function-calling:
+          enabled: true
+          parallel-tool-calls: true
+          max-parallel-calls: 5
+          timeout: 60000
+          
+        # Type Safety Settings
+        type-safety:
+          strict-validation: true
+          auto-conversion: true
+          fail-on-unknown-properties: false
+          
+        # Error Handling Configuration
+        error-handling:
+          include-stack-trace: false
+          detailed-messages: true
+          retry:
+            enabled: true
+            max-attempts: 3
+            backoff-delay: 1000
+            
+        # Security Configuration
+        security:
+          cors:
+            enabled: true
+            allowed-origins: ["*"]
+            allowed-methods: ["GET", "POST", "OPTIONS"]
+            allowed-headers: ["*"]
+            
+        # Monitoring & Metrics
+        monitoring:
+          enabled: true
+          health-check-interval: 30000
+          metrics:
+            request-duration: true
+            tool-usage: true
+            error-rates: true
+
+# Nacos configuration for service discovery
+nacos:
+  discovery:
+    server-addr: localhost:8848
+    namespace: public
+  config:
+    server-addr: "localhost:8848"
+    namespace: "public"
+    group: "DEFAULT_GROUP"
+    username: nacos
+    password: nacos
+    file-extension: yml
+    
+# MCP Server Registration Settings
+mcp:
+  router:
+    # Server Discovery Configuration
+    discovery:
+      # How often to refresh server list (in milliseconds)
+      refresh-interval: 30000
+      # Health check interval for registered servers
+      health-check-interval: 15000
+      # Timeout for server health checks
+      health-check-timeout: 5000
+      
+    # Connection Management
+    connection:
+      # Maximum concurrent connections per server
+      max-connections-per-server: 10
+      # Connection timeout
+      connect-timeout: 10000
+      # Read timeout for requests
+      read-timeout: 30000
+      # Connection pool settings
+      pool:
+        max-idle: 5
+        min-idle: 1
+        max-active: 20
+        
+    # Routing Configuration
+    routing:
+      # Load balancing strategy: round-robin, random, least-connections
+      load-balancer: "round-robin"
+      # Enable sticky sessions
+      sticky-sessions: false
+      # Failover configuration
+      failover:
+        enabled: true
+        max-retries: 2
+        retry-delay: 1000
+        
+    # Tool Execution Settings
+    tools:
+      # Maximum execution time for tools (milliseconds)
+      max-execution-time: 60000
+      # Enable tool result caching
+      caching:
+        enabled: true
+        ttl: 300000  # 5 minutes
+        max-size: 1000
+        
+    # Resource Access Settings  
+    resources:
+      # Maximum resource size (bytes)
+      max-size: 10485760  # 10MB
+      # Allowed resource types
+      allowed-types:
+        - "text/*"
+        - "application/json"
+        - "application/xml"
+        - "application/yaml"
+      # Resource caching
+      caching:
+        enabled: true
+        ttl: 600000  # 10 minutes
+        
+    # Prompt Management
+    prompts:
+      # Maximum prompt length
+      max-length: 32768
+      # Template caching
+      caching:
+        enabled: true
+        ttl: 3600000  # 1 hour
+
+# Logging Configuration
+logging:
+  level:
+    com.nacos.mcp.router: INFO
+    org.springframework.ai: DEBUG
+    com.alibaba.nacos: WARN
+    reactor.netty: WARN
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [%logger{36}] - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [%logger{50}] - %msg%n"
+  file:
+    name: "logs/nacos-mcp-router.log"
+    max-size: "10MB"
+    max-history: 30
+
+# Management & Actuator Configuration
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "health,info,metrics,prometheus,loggers"
+      base-path: "/actuator"
+  endpoint:
+    health:
+      show-details: "when-authorized"
+      show-components: "always"
+    metrics:
+      enabled: true
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+    tags:
+      application: "${spring.application.name}"
+      
+# Jackson JSON Configuration
+spring.jackson:
+  default-property-inclusion: NON_NULL
+  serialization:
+    write-dates-as-timestamps: false
+    fail-on-empty-beans: false
+  deserialization:
+    fail-on-unknown-properties: false
+    accept-single-value-as-array: true 

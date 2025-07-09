@@ -9,20 +9,34 @@
         <version>1.0.0</version>
     </parent>
 
-    <artifactId>mcp-client</artifactId>
-    <name>MCP Client Example</name>
-    <description>MCP Client implementation with Spring AI</description>
+    <artifactId>mcp-server-v2</artifactId>
+    <name>MCP Server V2 Example</name>
+    <description>MCP Server V2 implementation with Spring AI Starters</description>
 
     <dependencies>
-        <!-- Spring Boot Web for REST endpoints -->
+        <!-- MCP Server WebFlux support -->
         <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-web</artifactId>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-starter-mcp-server-webflux</artifactId>
         </dependency>
-
+        
+        <!-- Explicitly add WebFlux Starter for clarity and to avoid conflicts -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-webflux</artifactId>
+        </dependency>
+        
+        <!-- Spring Boot Data JPA for database operations -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+        
+        <!-- H2 Database for in-memory storage -->
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <scope>runtime</scope>
         </dependency>
         
         <!-- Lombok for reducing boilerplate -->
@@ -38,6 +52,16 @@
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
+
+        <!-- Spring Retry for robust registration -->
+        <dependency>
+            <groupId>org.springframework.retry</groupId>
+            <artifactId>spring-retry</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-aop</artifactId>
+        </dependency>
     </dependencies>
 
     <build>
@@ -46,10 +70,7 @@
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
                 <configuration>
-                    <jvmArguments>
-                        -Xms512m
-                        -Xmx1024m
-                    </jvmArguments>
+                    <mainClass>com.nacos.mcp.server.v2.McpServerV2Application</mainClass>
                 </configuration>
             </plugin>
             <plugin>

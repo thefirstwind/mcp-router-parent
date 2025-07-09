@@ -12,6 +12,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import com.nacos.mcp.router.service.provider.InMemorySearchProvider;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -30,9 +31,9 @@ public class SearchServiceImpl implements SearchService {
     private final McpRouterProperties mcpRouterProperties;
     // private final ChatClient chatClient; // Temporarily disabled
 
-    public SearchServiceImpl(List<SearchProvider> searchProviders, 
+    public SearchServiceImpl(InMemorySearchProvider inMemorySearchProvider,
                            McpRouterProperties mcpRouterProperties) {
-        this.searchProviders = searchProviders;
+        this.searchProviders = List.of(inMemorySearchProvider);
         this.mcpRouterProperties = mcpRouterProperties;
         // this.chatClient = chatClient; // Temporarily disabled
     }
@@ -69,12 +70,16 @@ public class SearchServiceImpl implements SearchService {
                                     McpServer::getName,
                                     server -> server,
                                     (existing, replacement) -> 
-                                            existing.getRelevanceScore() >= replacement.getRelevanceScore() 
+                                            (existing.getRelevanceScore() != null && replacement.getRelevanceScore() != null && existing.getRelevanceScore() >= replacement.getRelevanceScore())
                                                     ? existing : replacement))
                             .values()
                             .stream()
-                            .filter(server -> server.getRelevanceScore() >= request.getMinSimilarity())
-                            .sorted((a, b) -> Double.compare(b.getRelevanceScore(), a.getRelevanceScore()))
+                            .filter(server -> server.getRelevanceScore() != null && server.getRelevanceScore() >= request.getMinSimilarity())
+                            .sorted((a, b) -> {
+                                Double scoreA = a.getRelevanceScore() != null ? a.getRelevanceScore() : 0.0;
+                                Double scoreB = b.getRelevanceScore() != null ? b.getRelevanceScore() : 0.0;
+                                return Double.compare(scoreB, scoreA);
+                            })
                             .limit(request.getLimit())
                             .collect(Collectors.toList());
 

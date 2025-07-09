@@ -29,14 +29,14 @@ public class McpServer {
     private String name;
 
     /**
-     * Server description
-     */
-    private String description;
-
-    /**
      * Server version
      */
     private String version;
+
+    /**
+     * Server description
+     */
+    private String description;
 
     /**
      * Server provider
@@ -44,24 +44,42 @@ public class McpServer {
     private String provider;
 
     /**
-     * Transport type (stdio, sse, streamable_http)
+     * Transport type (e.g., HTTP, gRPC)
      */
     private String transportType;
 
     /**
-     * Server endpoint (for HTTP/SSE servers)
+     * Server endpoint URL
      */
     private String endpoint;
 
     /**
-     * Installation command (for stdio servers)
+     * Installation command for the server (optional)
      */
     private String installCommand;
+
+    /**
+     * Server IP
+     */
+    private String ip;
+
+    /**
+     * Server port
+     */
+    private int port;
 
     /**
      * Server status
      */
     private ServerStatus status;
+
+    /**
+     * Last heartbeat time
+     */
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    @JsonDeserialize(using = LocalDateTimeDeserializer.class)
+    @JsonSerialize(using = LocalDateTimeSerializer.class)
+    private LocalDateTime lastHeartbeat;
 
     /**
      * Available tools
@@ -95,9 +113,12 @@ public class McpServer {
     private Double relevanceScore;
 
     public enum ServerStatus {
-        REGISTERED,
+        HEALTHY,
+        UNHEALTHY,
+        UNKNOWN,
+        ERROR,
         CONNECTED,
         DISCONNECTED,
-        ERROR
+        REGISTERED
     }
 } 

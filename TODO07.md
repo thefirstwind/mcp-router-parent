@@ -7,7 +7,13 @@ https://docs.spring.io/spring-ai/reference/api/mcp/mcp-helpers.html
 https://docs.spring.io/spring-ai/reference/api/mcp/mcp-client-boot-starter-docs.html
 
 
-虽然我们已经成功让整个系统跑了起来，并且修复了所有可见的 Bug，但正如您所期望的，我们需要根据 `TODO06.md` 的目标和您提供的官方文档，来审视当前项目的设计和实现，发现其中可以改进的地方。
+从现在开始mcp-server不再修改，作为参考 从pom.xml 暂时注释掉，不参与parent模块的编译。
+创建新模块mcp-server-v2 与 mcp-server有相同的功能，而mcp-server-v2实现时，避免手动实现MCP功能，使用spring-ai-alibaba的现成的能力
+
+先分析 spring-ai-alibaba-mcp 的能力，
+参考地址：https://github.com/alibaba/spring-ai-alibaba/tree/main/spring-ai-alibaba-mcp/ 
+
+需要满足以下建议：
 
 目前项目的实现满足了 `TODO06.md` 中最核心的要求：
 *   `mcp-server` 能够通过 `mcp-router` 自动注册。

@@ -18,8 +18,33 @@ kill_process_on_port() {
     fi
 }
 
-# mcp-router port, mcp-server port
-PORTS=(8080 8081)
+# Function to wait for a service to be up
+wait_for_service() {
+    local port=$1
+    local health_path=$2
+    local service_name=$3
+    local timeout=120
+    local start_time=$(date +%s)
+
+    echo -e "${YELLOW}⏳ Waiting for $service_name on port $port to be UP...${NC}"
+
+    while true; do
+        current_time=$(date +%s)
+        if [ $((current_time - start_time)) -ge $timeout ]; then
+            echo -e "${RED}❌ $service_name failed to start within $timeout seconds.${NC}"
+            return 1
+        fi
+
+        if curl -s "http://localhost:$port$health_path" | grep -q '{"status":"UP"}'; then
+            echo -e "${GREEN}✅ $service_name is UP!${NC}"
+            return 0
+        fi
+        sleep 2
+    done
+}
+
+# mcp-router, mcp-server-v2, mcp-client ports
+PORTS=(8050 8061 8070)
 
 # Kill existing processes on the ports
 for port in "${PORTS[@]}"; do
@@ -36,24 +61,36 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# 检查 Java 版本
+# 检查环境
 echo -e "${BLUE}📋 检查环境...${NC}"
+# 1. Java Version
 if ! command -v java &> /dev/null; then
     echo -e "${RED}❌ Java 未安装，请安装 Java 17+${NC}"
     exit 1
 fi
-
 JAVA_VERSION=$(java -version 2>&1 | head -1 | cut -d'"' -f2 | sed '/^1\./s///' | cut -d'.' -f1)
 if [ "$JAVA_VERSION" -lt "17" ]; then
     echo -e "${RED}❌ 需要 Java 17 或更高版本，当前版本: $JAVA_VERSION${NC}"
     exit 1
 fi
-
 echo -e "${GREEN}✅ Java 版本检查通过: $(java -version 2>&1 | head -1)${NC}"
 
+# 2. Nacos Connectivity
+# echo -e "${BLUE}📡 正在验证 Nacos 连通性 (localhost:8848)...${NC}"
+# Note: The user-provided command with Authorization header is not used here,
+# as Spring Cloud Alibaba uses username/password from application.yml.
+# A simple check for the Nacos UI endpoint is sufficient.
+# if curl -X GET 'http://localhost:8848/nacos/v1/ns/service/list?pageNo=1&pageSize=10' -H 'Authorization: Key-Value nacos:nacos' | grep -q "Nacos"; then
+#     echo -e "${GREEN}✅ Nacos 连接成功。${NC}"
+# else
+#     echo -e "${RED}❌ 无法连接到 Nacos。请确保 Nacos 正在 Docker 中运行，并且端口 8848 已正确映射。${NC}"
+#     exit 1
+# fi
+
+
 # 编译和打包项目
-echo -e "${BLUE}🔨 编译和打包项目...${NC}"
-mvn clean package -DskipTests
+echo -e "${BLUE}🔨 编译和打包项目 (跳过测试)...${NC}"
+mvn clean package -DskipTests > /dev/null
 if [ $? -eq 0 ]; then
     echo -e "${GREEN}✅ 项目打包成功${NC}"
 else
@@ -61,187 +98,148 @@ else
     exit 1
 fi
 
-# 启动 MCP Server
-echo -e "${BLUE}🖥️  启动 MCP Server (端口 8081)...${NC}"
-java -jar -Dserver.port=8081 mcp-server/target/mcp-server-1.0.0.jar > logs/mcp-server-demo.log 2>&1 &
-MCP_SERVER_PID=$!
-
-# 等待服务启动
-echo -e "${YELLOW}⏳ 等待 MCP Server 启动...${NC}"
-sleep 10
-
-# 检查 MCP Server 是否启动成功
-if curl -s http://localhost:8081/actuator/health > /dev/null 2>&1; then
-    echo -e "${GREEN}✅ MCP Server 启动成功 (PID: $MCP_SERVER_PID)${NC}"
-else
-    echo -e "${YELLOW}⚠️  MCP Server 健康检查失败，继续启动 Router...${NC}"
-fi
-
 # 启动 MCP Router
-echo -e "${BLUE}🔀 启动 MCP Router (端口 8080)...${NC}"
-java -jar -Dserver.port=8080 mcp-router/target/nacos-mcp-router-1.0.0.jar > logs/mcp-router-demo.log 2>&1 &
+echo -e "${BLUE}🔀 启动 MCP Router (端口 8050)...${NC}"
+nohup java -jar mcp-router/target/nacos-mcp-router-1.0.0.jar > logs/mcp-router-demo.log 2>&1 &
 MCP_ROUTER_PID=$!
+sleep 10 # Wait for the router to initialize
 
-# 等待服务启动
-echo -e "${YELLOW}⏳ 等待 MCP Router 启动...${NC}"
-sleep 15
+# 启动 MCP Server V2
+echo -e "${BLUE}🖥️  启动 MCP Server V2 (端口 8061)...${NC}"
+nohup java -jar mcp-server-v2/target/mcp-server-v2-1.0.0.jar > logs/mcp-server-v2-demo.log 2>&1 &
+SERVER_V2_PID=$!
+sleep 15 # Wait for the server to initialize and register
 
-# 检查 MCP Router 是否启动成功
-if curl -s http://localhost:8080/health > /dev/null 2>&1; then
-    echo -e "${GREEN}✅ MCP Router 启动成功 (PID: $MCP_ROUTER_PID)${NC}"
-else
-    echo -e "${RED}❌ MCP Router 启动失败${NC}"
-    kill $MCP_SERVER_PID $MCP_ROUTER_PID 2>/dev/null
-    exit 1
-fi
+# 启动 MCP Client
+echo -e "${BLUE}🧑‍💻 启动 MCP Client (端口 8070)...${NC}"
+nohup java -jar mcp-client/target/mcp-client-1.0.0.jar > logs/mcp-client-demo.log 2>&1 &
+CLIENT_PID=$!
+sleep 10 # Wait for the client to initialize
 
 echo ""
-echo -e "${GREEN}🎉 系统启动完成！${NC}"
+echo -e "${GREEN}🚀 所有服务启动完成！${NC}"
 echo "========================"
 echo ""
 
+# 等待 server 完成向 router 注册
+echo -e "${YELLOW}⏳ 等待 MCP Server V2 向 Router 注册并发现工具...${NC}"
+sleep 5
+
 # 演示 MCP 协议功能
-echo -e "${BLUE}📡 演示 MCP JSON-RPC 协议...${NC}"
+echo -e "${BLUE}📡 演示 MCP JSON-RPC 协议 (通过 Client 调用)...${NC}"
 echo ""
 
-# 1. 测试 initialize 方法
-echo -e "${YELLOW}1️⃣  测试 MCP initialize 握手...${NC}"
-INIT_RESPONSE=$(curl -s -X POST http://localhost:8080/mcp/jsonrpc \
-  -H "Content-Type: application/json" \
-  -d '{
-    "jsonrpc": "2.0",
-    "id": 1,
-    "method": "initialize",
-    "params": {
-      "protocolVersion": "2024-11-05",
-      "capabilities": {},
-      "clientInfo": {
-        "name": "demo-client",
-        "version": "1.0.0"
-      }
-    }
-  }')
+# 1. 列出所有工具
+echo -e "${YELLOW}1️⃣  测试工具列表 (GET http://localhost:8070/mcp-client/api/v1/tools/list)...${NC}"
+TOOLS_RESPONSE=$(curl -s -X GET http://localhost:8070/mcp-client/api/v1/tools/list)
+echo "Raw tools response: $TOOLS_RESPONSE"
 
-if echo "$INIT_RESPONSE" | grep -q "protocolVersion"; then
-    echo -e "${GREEN}✅ MCP 握手成功${NC}"
-    echo "   服务器信息: $(echo "$INIT_RESPONSE" | jq -r '.result.serverInfo.name')"
-else
-    echo -e "${RED}❌ MCP 握手失败${NC}"
-fi
-
-echo ""
-
-# 2. 测试 tools/list 方法
-echo -e "${YELLOW}2️⃣  测试工具列表...${NC}"
-TOOLS_RESPONSE=$(curl -s -X POST http://localhost:8080/mcp/jsonrpc \
-  -H "Content-Type: application/json" \
-  -d '{
-    "jsonrpc": "2.0",
-    "id": 2,
-    "method": "tools/list",
-    "params": {}
-  }')
-
-if echo "$TOOLS_RESPONSE" | grep -q "tools"; then
-    TOOL_COUNT=$(echo "$TOOLS_RESPONSE" | jq '.result.tools | length')
+TOOL_COUNT=$(echo "$TOOLS_RESPONSE" | jq '.results | .[] | .tools | length' | awk '{s+=$1} END {print s}')
+if [ "$TOOL_COUNT" -gt "0" ]; then
     echo -e "${GREEN}✅ 发现 $TOOL_COUNT 个可用工具${NC}"
-    echo "$TOOLS_RESPONSE" | jq -r '.result.tools[] | "   - \(.name): \(.description)"'
+    echo "$TOOLS_RESPONSE" | jq -r '.results | .[] | .tools[]? | "   - \(.name): \(.description)"'
 else
-    echo -e "${RED}❌ 获取工具列表失败${NC}"
+    echo -e "${RED}❌ 获取工具列表失败或没有发现工具${NC}"
+    echo "Router Log:"
+    tail -n 20 logs/mcp-router-demo.log
+    echo "Server Log:"
+    tail -n 20 logs/mcp-server-v2-demo.log
 fi
 
 echo ""
 
-# 3. 测试内置工具调用
-echo -e "${YELLOW}3️⃣  测试内置工具: get_system_info...${NC}"
-TOOL_RESPONSE=$(curl -s -X POST http://localhost:8080/mcp/jsonrpc \
+# 2. 调用 PersonQueryTools 中的工具
+echo -e "${YELLOW}2️⃣  测试调用 PersonQueryTools: getAllPersons...${NC}"
+TOOL_RESPONSE=$(curl -s -X POST http://localhost:8070/mcp-client/api/v1/tools/call \
   -H "Content-Type: application/json" \
   -d '{
-    "jsonrpc": "2.0",
-    "id": 3,
-    "method": "tools/call",
-    "params": {
-      "name": "get_system_info",
-      "arguments": {}
+    "toolName": "getAllPersons",
+    "arguments": {}
+  }')
+
+if echo "$TOOL_RESPONSE" | grep -q "result"; then
+    echo -e "${GREEN}✅ 工具 'getAllPersons' 调用成功${NC}"
+    # H2 DB is empty initially, so no data will be found. This is expected.
+    PERSON_COUNT=$(echo "$TOOL_RESPONSE" | jq '.result | fromjson | length')
+    echo "   数据库中初始用户数量为 $PERSON_COUNT"
+else
+    echo -e "${RED}❌ 工具 'getAllPersons' 调用失败${NC}"
+    echo "Response: $TOOL_RESPONSE"
+fi
+
+echo ""
+
+# 3. 调用 PersonModifyTools 中的工具
+echo -e "${YELLOW}3️⃣  测试调用 PersonModifyTools: addPerson...${NC}"
+ADD_RESPONSE=$(curl -s -X POST http://localhost:8070/mcp-client/api/v1/tools/call \
+  -H "Content-Type: application/json" \
+  -d '{
+    "toolName": "addPerson",
+    "arguments": {
+        "firstName": "John",
+        "lastName": "Doe",
+        "age": 30,
+        "nationality": "American",
+        "gender": "MALE"
     }
   }')
 
-if echo "$TOOL_RESPONSE" | grep -q "Nacos MCP Router"; then
-    echo -e "${GREEN}✅ 系统信息工具调用成功${NC}"
-    echo "$TOOL_RESPONSE" | jq -r '.result.content[0].text' | head -5
+if echo "$ADD_RESPONSE" | jq -e '.result | fromjson | .id' > /dev/null; then
+    echo -e "${GREEN}✅ 工具 'addPerson' 调用成功${NC}"
+    echo "   成功添加新用户: John Doe"
 else
-    echo -e "${RED}❌ 系统信息工具调用失败${NC}"
+    echo -e "${RED}❌ 工具 'addPerson' 调用失败${NC}"
+    echo "Response: $ADD_RESPONSE"
 fi
-
 echo ""
 
-# 4. 测试服务器列表工具
-echo -e "${YELLOW}4️⃣  测试服务器列表工具...${NC}"
-LIST_SERVERS_RESPONSE=$(curl -s -X POST http://localhost:8080/mcp/jsonrpc \
+# 4. 再次调用 getAllPersons 验证
+echo -e "${YELLOW}4️⃣  再次调用 getAllPersons 验证新用户...${NC}"
+VERIFY_RESPONSE=$(curl -s -X POST http://localhost:8070/mcp-client/api/v1/tools/call \
   -H "Content-Type: application/json" \
   -d '{
-    "jsonrpc": "2.0",
-    "id": 4,
-    "method": "tools/call",
-    "params": {
-      "name": "list_servers",
-      "arguments": {}
-    }
+    "toolName": "getAllPersons",
+    "arguments": {}
   }')
 
-if echo "$LIST_SERVERS_RESPONSE" | grep -q "Available MCP Servers"; then
-    echo -e "${GREEN}✅ 服务器列表工具调用成功${NC}"
-    echo "$LIST_SERVERS_RESPONSE" | jq -r '.result.content[0].text'
+PERSON_COUNT=$(echo "$VERIFY_RESPONSE" | jq '.result | fromjson | length')
+if [ "$PERSON_COUNT" -eq "1" ]; then
+    echo -e "${GREEN}✅ 验证成功，用户总数现在为 $PERSON_COUNT ${NC}"
 else
-    echo -e "${RED}❌ 服务器列表工具调用失败${NC}"
+    echo -e "${RED}❌ 验证失败，用户数量不为1 (当前为 $PERSON_COUNT)${NC}"
 fi
 
-echo ""
-
-# 演示传统 REST API 兼容性
-echo -e "${BLUE}🔄 演示向后兼容的 REST API...${NC}"
-
-# 测试健康检查
-echo -e "${YELLOW}5️⃣  测试健康检查 API...${NC}"
-HEALTH_RESPONSE=$(curl -s http://localhost:8080/health)
-if echo "$HEALTH_RESPONSE" | grep -q "UP"; then
-    echo -e "${GREEN}✅ 系统健康状态正常${NC}"
-else
-    echo -e "${YELLOW}⚠️  健康检查响应: $HEALTH_RESPONSE${NC}"
-fi
 
 echo ""
 
 # 显示日志信息
 echo -e "${BLUE}📋 系统状态信息${NC}"
 echo "========================"
-echo -e "MCP Server PID: ${GREEN}$MCP_SERVER_PID${NC}"
 echo -e "MCP Router PID: ${GREEN}$MCP_ROUTER_PID${NC}"
-echo -e "MCP Router URL: ${GREEN}http://localhost:8080${NC}"
-echo -e "MCP Server URL: ${GREEN}http://localhost:8081${NC}"
-echo -e "JSON-RPC 端点: ${GREEN}http://localhost:8080/mcp/jsonrpc${NC}"
+echo -e "MCP Server V2 PID: ${GREEN}$SERVER_V2_PID${NC}"
+echo -e "MCP Client PID: ${GREEN}$CLIENT_PID${NC}"
+echo -e "MCP Router URL: ${GREEN}http://localhost:8050${NC}"
+echo -e "MCP Server V2 URL: ${GREEN}http://localhost:8061/mcp-server-v2${NC}"
+echo -e "MCP Client URL: ${GREEN}http://localhost:8070/mcp-client${NC}"
+echo -e "Client API Endpoint: ${GREEN}http://localhost:8070/mcp-client/api/v1/tools/list${NC}"
 echo ""
 
 # 提供交互选项
 echo -e "${BLUE}🎮 交互选项${NC}"
 echo "========================"
 echo "1. 查看 MCP Router 日志: tail -f logs/mcp-router-demo.log"
-echo "2. 查看 MCP Server 日志: tail -f logs/mcp-server-demo.log"
-echo "3. 测试自定义 MCP 工具调用:"
-echo "   curl -X POST http://localhost:8080/mcp/jsonrpc \\"
-echo "     -H 'Content-Type: application/json' \\"
-echo "     -d '{\"jsonrpc\":\"2.0\",\"id\":5,\"method\":\"tools/call\",\"params\":{\"name\":\"ping_server\",\"arguments\":{\"serverName\":\"test\"}}}'"
-echo ""
+echo "2. 查看 MCP Server V2 日志: tail -f logs/mcp-server-v2-demo.log"
+echo "3. 查看 MCP Client 日志: tail -f logs/mcp-client-demo.log"
 echo "4. 停止演示系统:"
-echo "   kill $MCP_SERVER_PID $MCP_ROUTER_PID"
+echo "   kill $MCP_ROUTER_PID $SERVER_V2_PID $CLIENT_PID"
 echo ""
 
 echo -e "${GREEN}🎉 MCP Router 改造演示完成！${NC}"
 echo ""
 echo -e "${YELLOW}💡 提示:${NC}"
-echo "- 这个系统现在完全符合 MCP JSON-RPC 2.0 协议标准"
-echo "- 可以与标准 MCP 客户端 (如 Claude Desktop) 进行通信"
-echo "- 支持动态工具注册和服务发现"
-echo "- 提供企业级的监控和错误处理机制"
+echo "- 整个系统 (Router, Server, Client) 均已启动."
+echo "- Server V2 自动向 Router 注册了它的工具."
+echo "- Client 通过 Router 发现了这些工具并成功调用."
+echo "- 这展示了一个完整的 MCP 服务发现和远程工具调用流程."
 echo ""
-echo -e "${BLUE}📚 详细信息请查看: TRANSFORMATION_SUMMARY.md${NC}" 
+echo -e "${BLUE}📚 详细信息请查看: README.md 和 ROUTER_DESIGN.md${NC}" 

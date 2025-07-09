@@ -1,0 +1,59 @@
+# Spring Boot
+server:
+  port: 8061
+  servlet:
+    context-path: /mcp-server-v2
+
+spring:
+  application:
+    name: mcp-server-v2
+  # Datasource
+  datasource:
+    url: jdbc:h2:mem:testdb-v2;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: true
+  # H2 Console
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
+# Spring AI MCP Server Configuration
+spring.ai.mcp:
+  # Server self-identification
+  server:
+    name: person-service-v2
+    version: 2.0.0
+    description: "Version 2 of Person Service"
+    transport-type: http
+    endpoints:
+      base-url: "http://localhost:${server.port}${server.servlet.context-path}"
+      mcp-endpoint: "/mcp"
+      health-endpoint: "/actuator/health"
+    router:
+      auto-register: true
+      url: "http://localhost:8050"
+      registration-endpoint: "/api/mcp/register"
+      heartbeat-endpoint: "/api/mcp/servers/{serverName}/heartbeat"
+      heartbeat-interval: 15000
+
+logging:
+  level:
+    root: INFO
+    org.springframework.ai: DEBUG
+    com.nacos.mcp: DEBUG
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"
+  endpoint:
+    health:
+      show-details: always 

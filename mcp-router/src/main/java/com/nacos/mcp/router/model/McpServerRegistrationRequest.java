@@ -108,5 +108,5 @@ public class McpServerRegistrationRequest {
     private Map<String, Object> capabilities;
 
     // A list of tools that the server provides.
-    private List<Map<String, Object>> tools;
+    private List<McpTool> tools;
 } 

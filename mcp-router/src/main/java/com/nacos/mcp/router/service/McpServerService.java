@@ -2,6 +2,7 @@ package com.nacos.mcp.router.service;
 
 import com.nacos.mcp.router.model.McpServer;
 import com.nacos.mcp.router.model.McpServerRegistrationRequest;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.util.List;
@@ -110,4 +111,14 @@ public interface McpServerService {
      * @return operation result
      */
     Mono<Void> recordHeartbeat(String serverName);
+
+    void registerServer(McpServerRegistrationRequest registrationRequest);
+
+    Flux<McpServer> getRegisteredServers();
+
+    Mono<Void> deregisterMcpServer(String serverName);
+
+    Mono<McpServer> getServerByName(String serverName);
+
+    Mono<McpServer> getNextAvailableServer();
 } 
