@@ -12,6 +12,7 @@ import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Max;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -97,4 +98,15 @@ public class McpServerRegistrationRequest {
      */
     @Builder.Default
     private String cluster = "DEFAULT";
+
+    // Endpoint information
+    private String baseUrl;
+    private String mcpEndpoint;
+    private String healthEndpoint;
+    
+    // Server capabilities
+    private Map<String, Object> capabilities;
+
+    // A list of tools that the server provides.
+    private List<Map<String, Object>> tools;
 } 

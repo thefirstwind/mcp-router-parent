@@ -166,6 +166,8 @@ public class RealMcpIntegrationTest {
 
         McpServerRegistrationRequest registrationRequest = McpServerRegistrationRequest.builder()
             .serverName("real-file-server")
+            .ip("127.0.0.1")
+            .port(8080)
             .version("1.0.0")
             .description("Real File Server for Integration Testing")
             .transportType("stdio")

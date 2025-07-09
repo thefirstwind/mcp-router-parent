@@ -1,6 +1,7 @@
 package com.nacos.mcp.router.model;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.Data;
 import lombok.Builder;
 import lombok.AllArgsConstructor;
@@ -17,6 +18,7 @@ import java.util.Map;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class McpTool {
 
     /**

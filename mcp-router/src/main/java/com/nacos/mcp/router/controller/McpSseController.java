@@ -6,6 +6,8 @@ import com.nacos.mcp.router.model.*;
 import com.nacos.mcp.router.service.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import lombok.Data;
+import lombok.Builder;
 import org.springframework.http.MediaType;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.web.bind.annotation.*;
@@ -14,6 +16,7 @@ import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
 
 import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.HashMap;
 import java.util.List;
@@ -43,17 +46,58 @@ public class McpSseController {
     // 管理活跃的SSE连接
     private final Map<String, Sinks.Many<ServerSentEvent<String>>> activeConnections = new ConcurrentHashMap<>();
 
+    // Enhanced session management with lifecycle tracking
+    private final Map<String, SseSession> activeSessions = new ConcurrentHashMap<>();
+    
+    // Session class for better management
+    @Data
+    @Builder
+    public static class SseSession {
+        private final String sessionId;
+        private final String clientId;
+        private final Sinks.Many<ServerSentEvent<String>> sink;
+        private final LocalDateTime createdAt;
+        private LocalDateTime lastActivity;
+        private SessionStatus status;
+        private Map<String, Object> metadata;
+        
+        public enum SessionStatus {
+            ACTIVE, IDLE, EXPIRED, CLOSED
+        }
+    }
+
     /**
-     * SSE端点 - 建立服务器发送事件连接
-     * 客户端通过此端点接收来自服务器的消息
+     * Enhanced SSE endpoint with session management
      */
     @GetMapping(value = "/jsonrpc/sse", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public Flux<ServerSentEvent<String>> establishSseConnection(@RequestParam(required = false) String clientId) {
+    public Flux<ServerSentEvent<String>> establishSseConnection(
+            @RequestParam(required = false) String clientId,
+            @RequestParam(required = false) String authToken) {
+        
+        String sessionId = "session-" + System.currentTimeMillis();
         String connectionId = clientId != null ? clientId : "client-" + System.currentTimeMillis();
-        log.info("Establishing SSE connection for client: {}", connectionId);
+        
+        log.info("Establishing SSE connection: sessionId={}, clientId={}", sessionId, connectionId);
+
+        // Validate authentication if provided
+        if (authToken != null && !validateAuthToken(authToken)) {
+            return Flux.error(new RuntimeException("Invalid authentication token"));
+        }
 
         Sinks.Many<ServerSentEvent<String>> sink = Sinks.many().multicast().onBackpressureBuffer();
-        activeConnections.put(connectionId, sink);
+        
+        SseSession session = SseSession.builder()
+            .sessionId(sessionId)
+            .clientId(connectionId)
+            .sink(sink)
+            .createdAt(LocalDateTime.now())
+            .lastActivity(LocalDateTime.now())
+            .status(SseSession.SessionStatus.ACTIVE)
+            .metadata(new HashMap<>())
+            .build();
+            
+        activeSessions.put(sessionId, session);
+        activeConnections.put(connectionId, sink); // Keep backward compatibility
 
         // 发送连接确认消息
         try {
@@ -350,6 +394,14 @@ public class McpSseController {
         status.put("timestamp", System.currentTimeMillis());
         
         return Mono.just(status);
+    }
+
+    /**
+     * Validate authentication token (simple implementation)
+     */
+    private boolean validateAuthToken(String authToken) {
+        // Simple token validation - in production use proper JWT/OAuth validation
+        return authToken != null && !authToken.trim().isEmpty() && authToken.length() > 10;
     }
 
     /**

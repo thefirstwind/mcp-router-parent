@@ -1,7 +1,30 @@
 #!/bin/bash
+set -e
 
 # 🚀 MCP Router 改造演示脚本
 # 此脚本演示改造后的 MCP Router 系统功能
+
+# Function to check if a port is in use
+is_port_in_use() {
+    lsof -i:$1 > /dev/null
+    return $?
+}
+
+# Kill processes using specified ports
+kill_process_on_port() {
+    if is_port_in_use $1; then
+        echo "Port $1 is in use. Killing the process..."
+        lsof -t -i:$1 | xargs kill -9
+    fi
+}
+
+# mcp-router port, mcp-server port
+PORTS=(8080 8081)
+
+# Kill existing processes on the ports
+for port in "${PORTS[@]}"; do
+    kill_process_on_port $port
+done
 
 echo "🚀 MCP Router 改造演示"
 echo "========================"
@@ -28,22 +51,20 @@ fi
 
 echo -e "${GREEN}✅ Java 版本检查通过: $(java -version 2>&1 | head -1)${NC}"
 
-# 编译项目
-echo -e "${BLUE}🔨 编译项目...${NC}"
-mvn clean compile -DskipTests -q
+# 编译和打包项目
+echo -e "${BLUE}🔨 编译和打包项目...${NC}"
+mvn clean package -DskipTests
 if [ $? -eq 0 ]; then
-    echo -e "${GREEN}✅ 项目编译成功${NC}"
+    echo -e "${GREEN}✅ 项目打包成功${NC}"
 else
-    echo -e "${RED}❌ 项目编译失败${NC}"
+    echo -e "${RED}❌ 项目打包失败${NC}"
     exit 1
 fi
 
 # 启动 MCP Server
 echo -e "${BLUE}🖥️  启动 MCP Server (端口 8081)...${NC}"
-cd mcp-server
-mvn spring-boot:run -Dspring-boot.run.jvmArguments="-Dserver.port=8081" > ../logs/mcp-server-demo.log 2>&1 &
+java -jar -Dserver.port=8081 mcp-server/target/mcp-server-1.0.0.jar > logs/mcp-server-demo.log 2>&1 &
 MCP_SERVER_PID=$!
-cd ..
 
 # 等待服务启动
 echo -e "${YELLOW}⏳ 等待 MCP Server 启动...${NC}"
@@ -58,10 +79,8 @@ fi
 
 # 启动 MCP Router
 echo -e "${BLUE}🔀 启动 MCP Router (端口 8080)...${NC}"
-cd mcp-router
-mvn spring-boot:run -Dspring-boot.run.jvmArguments="-Dserver.port=8080" > ../logs/mcp-router-demo.log 2>&1 &
+java -jar -Dserver.port=8080 mcp-router/target/nacos-mcp-router-1.0.0.jar > logs/mcp-router-demo.log 2>&1 &
 MCP_ROUTER_PID=$!
-cd ..
 
 # 等待服务启动
 echo -e "${YELLOW}⏳ 等待 MCP Router 启动...${NC}"

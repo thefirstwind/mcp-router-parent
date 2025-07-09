@@ -11,7 +11,9 @@ server:
 
 spring:
   application:
-    name: nacos-mcp-router  
+    name: mcp-router
+  main:
+    banner-mode: "off"
   # Jackson Configuration for Date/Time serialization
   jackson:
     serialization:
@@ -111,21 +113,11 @@ spring:
             tool-usage: true
             error-rates: true
 
-# Nacos 2.2.3 Configuration
+# Nacos configuration for service discovery
 nacos:
   discovery:
-    server-addr: "localhost:8848"
-    namespace: "public" 
-    group: "DEFAULT_GROUP"
-    username: nacos
-    password: nacos
-    register-enabled: true
-    # Nacos 2.2.3 specific settings
-    cluster-name: "DEFAULT"
-    weight: 1.0
-    metadata:
-      version: "1.0.0"
-      mcp-enabled: "true"
+    server-addr: localhost:8848
+    namespace: public
   config:
     server-addr: "localhost:8848"
     namespace: "public"

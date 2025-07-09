@@ -139,7 +139,7 @@ public class McpRouterController {
     @PostMapping("/register")
     public Mono<ResponseEntity<McpServer>> registerMcpServer(@Valid @RequestBody McpServerRegistrationRequest request) {
         log.info("Registering MCP server: {}", request.getServerName());
-        return mcpServerService.registerMcpServer(request)
+        return mcpServerService.registerMcpServerWithTools(request)
                 .map(server -> ResponseEntity.status(201).body(server))
                 .onErrorResume(throwable -> {
                     log.error("Failed to register MCP server {}: {}", request.getServerName(), throwable.getMessage());
@@ -319,6 +319,34 @@ public class McpRouterController {
                 .onErrorResume(throwable -> {
                     log.error("Failed to search prompts: {}", throwable.getMessage());
                     return Mono.just(ResponseEntity.badRequest().build());
+                });
+    }
+
+    @PostMapping("/servers/{serverName}/register-with-tools")
+    public Mono<ResponseEntity<McpServer>> registerMcpServerWithTools(
+            @PathVariable String serverName,
+            @Valid @RequestBody McpServerRegistrationRequest request) {
+        log.info("Received atomic registration request for server: {}", serverName);
+        return mcpServerService.registerMcpServer(request)
+                .map(server -> ResponseEntity.status(201).body(server))
+                .onErrorResume(throwable -> {
+                    log.error("Failed to register MCP server {}: {}", serverName, throwable.getMessage());
+                    return Mono.just(ResponseEntity.status(500)
+                            .body(McpServer.builder()
+                                    .name(serverName)
+                                    .status(McpServer.ServerStatus.ERROR)
+                                    .build()));
+                });
+    }
+
+    @PostMapping("/servers/{serverName}/heartbeat")
+    public Mono<ResponseEntity<Void>> receiveHeartbeat(@PathVariable String serverName) {
+        log.info("Received heartbeat from server: {}", serverName);
+        return mcpServerService.recordHeartbeat("mcp-" + serverName)
+                .then(Mono.just(ResponseEntity.ok().<Void>build()))
+                .onErrorResume(e -> {
+                    log.error("Failed to process heartbeat for server {}: {}", serverName, e.getMessage(), e);
+                    return Mono.just(ResponseEntity.status(500).build());
                 });
     }
 }

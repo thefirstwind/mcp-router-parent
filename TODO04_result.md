@@ -259,7 +259,7 @@ public class PersonTools {
 
 **Step 2: 配置MCP Server Application**
 - 在 `McpServerApplication` 中添加 `MethodToolCallbackProvider` Bean
-- 通过 `MethodToolCallbackProvider.builder().toolObjects(personTools).build()` 自动发现工具方法
+- 通过 `MethodToolCallbackProvider.builder().toolObjects(personQueryTools).build()` 自动发现工具方法
 
 **Step 3: 添加增强功能**
 为PersonTools添加了完整的CRUD操作：
@@ -273,10 +273,10 @@ public class PersonTools {
 #### 4. **配置优化**
 ```java
 @Bean
-public MethodToolCallbackProvider personToolCallbackProvider(PersonTools personTools) {
+public MethodToolCallbackProvider personToolCallbackProvider(PersonTools personQueryTools) {
     return MethodToolCallbackProvider
             .builder()
-            .toolObjects(personTools)
+            .toolObjects(personQueryTools)
             .build();
 }
 ```

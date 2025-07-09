@@ -3,7 +3,8 @@ package com.nacos.mcp.server;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nacos.mcp.server.model.Person;
 import com.nacos.mcp.server.repository.PersonRepository;
-import com.nacos.mcp.server.tools.PersonTools;
+import com.nacos.mcp.server.tools.PersonModifyTools;
+import com.nacos.mcp.server.tools.PersonQueryTools;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -37,7 +38,9 @@ public class McpServerIntegrationTest {
     private PersonRepository personRepository;
 
     @Autowired
-    private PersonTools personTools;
+    private PersonQueryTools personQueryTools;
+    @Autowired
+    private PersonModifyTools personModifyTools;
 
     @Autowired
     private ObjectMapper objectMapper;
@@ -49,14 +52,14 @@ public class McpServerIntegrationTest {
 
     @Test
     void contextLoads() {
-        assertThat(personTools).isNotNull();
+        assertThat(personQueryTools).isNotNull();
         assertThat(personRepository).isNotNull();
     }
 
     @Test
     void testPersonToolsFunctionality() {
         // Test addPerson
-        Person john = personTools.addPerson("John", "Doe", 30, "American", Person.Gender.MALE);
+        Person john = personModifyTools.addPerson("John", "Doe", 30, "American", Person.Gender.MALE);
         assertThat(john).isNotNull();
         assertThat(john.getId()).isNotNull();
         assertThat(john.getFirstName()).isEqualTo("John");
@@ -66,37 +69,37 @@ public class McpServerIntegrationTest {
         assertThat(john.getGender()).isEqualTo(Person.Gender.MALE);
 
         // Test getPersonById
-        Person retrieved = personTools.getPersonById(john.getId());
+        Person retrieved = personQueryTools.getPersonById(john.getId());
         assertThat(retrieved).isNotNull();
         assertThat(retrieved.getFirstName()).isEqualTo("John");
 
         // Test getAllPersons
-        List<Person> allPersons = personTools.getAllPersons();
+        List<Person> allPersons = personQueryTools.getAllPersons();
         assertThat(allPersons).hasSize(1);
         assertThat(allPersons.get(0).getFirstName()).isEqualTo("John");
 
         // Add another person
-        Person jane = personTools.addPerson("Jane", "Smith", 25, "American", Person.Gender.FEMALE);
+        Person jane = personModifyTools.addPerson("Jane", "Smith", 25, "American", Person.Gender.FEMALE);
         assertThat(jane).isNotNull();
 
         // Test getPersonsByNationality
-        List<Person> americans = personTools.getPersonsByNationality("American");
+        List<Person> americans = personQueryTools.getPersonsByNationality("American");
         assertThat(americans).hasSize(2);
 
         // Test countPersonsByNationality
-        long americanCount = personTools.countPersonsByNationality("American");
+        long americanCount = personQueryTools.countPersonsByNationality("American");
         assertThat(americanCount).isEqualTo(2);
 
         // Test deletePerson
-        boolean deleted = personTools.deletePerson(john.getId());
+        boolean deleted = personModifyTools.deletePerson(john.getId());
         assertThat(deleted).isTrue();
 
         // Verify deletion
-        Person shouldBeNull = personTools.getPersonById(john.getId());
+        Person shouldBeNull = personQueryTools.getPersonById(john.getId());
         assertThat(shouldBeNull).isNull();
 
         // Test deleting non-existent person
-        boolean notDeleted = personTools.deletePerson(999L);
+        boolean notDeleted = personModifyTools.deletePerson(999L);
         assertThat(notDeleted).isFalse();
     }
 
@@ -139,26 +142,26 @@ public class McpServerIntegrationTest {
     @Test
     void testToolAnnotationsAreWorking() {
         // Test that @Tool annotations are properly configured
-        assertThat(personTools).isNotNull();
+        assertThat(personQueryTools).isNotNull();
         
         // Test each tool method works
-        Person person = personTools.addPerson("Tool", "Test", 30, "TestNation", Person.Gender.MALE);
+        Person person = personModifyTools.addPerson("Tool", "Test", 30, "TestNation", Person.Gender.MALE);
         assertThat(person).isNotNull();
         
-        Person found = personTools.getPersonById(person.getId());
+        Person found = personQueryTools.getPersonById(person.getId());
         assertThat(found).isNotNull();
         assertThat(found.getFirstName()).isEqualTo("Tool");
         
-        List<Person> byNationality = personTools.getPersonsByNationality("TestNation");
+        List<Person> byNationality = personQueryTools.getPersonsByNationality("TestNation");
         assertThat(byNationality).hasSize(1);
         
-        long count = personTools.countPersonsByNationality("TestNation");
+        long count = personQueryTools.countPersonsByNationality("TestNation");
         assertThat(count).isEqualTo(1);
         
-        List<Person> all = personTools.getAllPersons();
+        List<Person> all = personQueryTools.getAllPersons();
         assertThat(all).hasSize(1);
         
-        boolean deleted = personTools.deletePerson(person.getId());
+        boolean deleted = personModifyTools.deletePerson(person.getId());
         assertThat(deleted).isTrue();
     }
 

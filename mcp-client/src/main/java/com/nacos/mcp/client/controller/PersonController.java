@@ -3,9 +3,11 @@ package com.nacos.mcp.client.controller;
 import com.nacos.mcp.client.service.McpRouterService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
 
+import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -100,5 +102,192 @@ public class PersonController {
     public Mono<String> checkMcpStatus() {
         log.info("Checking MCP Router connection status");
         return mcpRouterService.checkMcpConnectionStatus();
+    }
+
+    @GetMapping("/mcp/discovered-servers")
+    public Mono<String> getDiscoveredServers() {
+        log.info("Getting discovered MCP servers list");
+        return mcpRouterService.getDiscoveredServers();
+    }
+
+    @GetMapping("/mcp/server-status/{serverName}")
+    public Mono<String> checkServerStatus(@PathVariable String serverName) {
+        log.info("Checking status for server: {}", serverName);
+        return mcpRouterService.checkServerAvailability(serverName);
+    }
+
+    /**
+     * 检查指定工具的健康度
+     */
+    @GetMapping("/tools/{toolName}/health")
+    public ResponseEntity<Map<String, Object>> checkToolHealth(@PathVariable String toolName) {
+        log.info("检查工具健康度: {}", toolName);
+        Map<String, Object> healthStatus = mcpRouterService.checkToolHealth(toolName);
+        return ResponseEntity.ok(healthStatus);
+    }
+    
+    /**
+     * 批量检查所有工具的健康度
+     */
+    @GetMapping("/tools/health/batch")
+    public ResponseEntity<Map<String, Object>> checkAllToolsHealth() {
+        log.info("批量检查所有工具健康度");
+        Map<String, Object> batchHealthStatus = mcpRouterService.checkAllToolsHealth();
+        return ResponseEntity.ok(batchHealthStatus);
+    }
+    
+    /**
+     * 验证指定工具是否注册成功
+     */
+    @GetMapping("/tools/{toolName}/verify")
+    public ResponseEntity<Map<String, Object>> verifyToolRegistration(@PathVariable String toolName) {
+        log.info("验证工具注册状态: {}", toolName);
+        Map<String, Object> verificationResult = mcpRouterService.verifyToolRegistration(toolName);
+        return ResponseEntity.ok(verificationResult);
+    }
+    
+    /**
+     * 获取所有已注册的工具列表
+     */
+    @GetMapping("/tools")
+    public ResponseEntity<Map<String, Object>> getAllRegisteredTools() {
+        log.info("获取所有已注册工具列表");
+        Map<String, Object> toolsList = mcpRouterService.getAllRegisteredTools();
+        return ResponseEntity.ok(toolsList);
+    }
+    
+    /**
+     * 使用健康检查调用工具 - 根据ID获取人员信息
+     */
+    @GetMapping("/persons/{id}/with-health-check")
+    public ResponseEntity<Map<String, Object>> getPersonByIdWithHealthCheck(@PathVariable Long id) {
+        log.info("带健康检查的获取人员信息: ID = {}", id);
+        
+        Map<String, Object> params = new HashMap<>();
+        params.put("id", id);
+        
+        Map<String, Object> result = mcpRouterService.callToolWithHealthCheck(
+            "person-mcp-server", "getPersonById", params);
+        
+        return ResponseEntity.ok(result);
+    }
+    
+    /**
+     * 使用健康检查调用工具 - 获取所有人员信息
+     */
+    @GetMapping("/persons/all/with-health-check")
+    public ResponseEntity<Map<String, Object>> getAllPersonsWithHealthCheck() {
+        log.info("带健康检查的获取所有人员信息");
+        
+        Map<String, Object> result = mcpRouterService.callToolWithHealthCheck(
+            "person-mcp-server", "getAllPersons", new HashMap<>());
+        
+        return ResponseEntity.ok(result);
+    }
+    
+    /**
+     * 使用健康检查调用工具 - 根据国籍获取人员信息
+     */
+    @GetMapping("/persons/nationality/{nationality}/with-health-check")
+    public ResponseEntity<Map<String, Object>> getPersonsByNationalityWithHealthCheck(@PathVariable String nationality) {
+        log.info("带健康检查的根据国籍获取人员信息: nationality = {}", nationality);
+        
+        Map<String, Object> params = new HashMap<>();
+        params.put("nationality", nationality);
+        
+        Map<String, Object> result = mcpRouterService.callToolWithHealthCheck(
+            "person-mcp-server", "getPersonsByNationality", params);
+        
+        return ResponseEntity.ok(result);
+    }
+    
+    /**
+     * 使用健康检查调用工具 - 添加新人员
+     */
+    @PostMapping("/persons/with-health-check")
+    public ResponseEntity<Map<String, Object>> addPersonWithHealthCheck(@RequestBody Map<String, Object> personData) {
+        log.info("带健康检查的添加人员: {}", personData);
+        
+        Map<String, Object> result = mcpRouterService.callToolWithHealthCheck(
+            "person-mcp-server", "addPerson", personData);
+        
+        return ResponseEntity.ok(result);
+    }
+    
+    /**
+     * 使用健康检查调用工具 - 删除人员
+     */
+    @DeleteMapping("/persons/{id}/with-health-check")
+    public ResponseEntity<Map<String, Object>> deletePersonWithHealthCheck(@PathVariable Long id) {
+        log.info("带健康检查的删除人员: ID = {}", id);
+        
+        Map<String, Object> params = new HashMap<>();
+        params.put("id", id);
+        
+        Map<String, Object> result = mcpRouterService.callToolWithHealthCheck(
+            "person-mcp-server", "deletePerson", params);
+        
+        return ResponseEntity.ok(result);
+    }
+    
+    /**
+     * 测试工具链：验证注册 -> 检查健康度 -> 调用工具
+     */
+    @GetMapping("/test/tool-chain/{toolName}")
+    public ResponseEntity<Map<String, Object>> testToolChain(@PathVariable String toolName) {
+        log.info("测试工具链: {}", toolName);
+        
+        Map<String, Object> chainResult = new HashMap<>();
+        chainResult.put("toolName", toolName);
+        chainResult.put("timestamp", System.currentTimeMillis());
+        
+        try {
+            // 1. 验证工具注册
+            Map<String, Object> verification = mcpRouterService.verifyToolRegistration(toolName);
+            chainResult.put("verification", verification);
+            
+            Boolean isRegistered = (Boolean) verification.get("registered");
+            if (isRegistered == null || !isRegistered) {
+                chainResult.put("success", false);
+                chainResult.put("step", "verification");
+                chainResult.put("message", "工具未注册或注册验证失败");
+                return ResponseEntity.ok(chainResult);
+            }
+            
+            // 2. 检查健康度
+            Map<String, Object> healthCheck = mcpRouterService.checkToolHealth(toolName);
+            chainResult.put("healthCheck", healthCheck);
+            
+            Boolean isHealthy = (Boolean) healthCheck.get("healthy");
+            if (isHealthy == null || !isHealthy) {
+                chainResult.put("success", false);
+                chainResult.put("step", "healthCheck");
+                chainResult.put("message", "工具健康检查失败");
+                return ResponseEntity.ok(chainResult);
+            }
+            
+            // 3. 执行示例调用（根据工具名称决定参数）
+            Map<String, Object> params = new HashMap<>();
+            if ("getPersonById".equals(toolName)) {
+                params.put("id", 1L);
+            } else if ("getPersonsByNationality".equals(toolName)) {
+                params.put("nationality", "Chinese");
+            }
+            
+            Map<String, Object> toolResult = mcpRouterService.callTool("person-mcp-server", toolName, params);
+            chainResult.put("toolResult", toolResult);
+            
+            chainResult.put("success", true);
+            chainResult.put("step", "completed");
+            chainResult.put("message", "工具链测试完成");
+            
+        } catch (Exception e) {
+            log.error("工具链测试异常: {}", toolName, e);
+            chainResult.put("success", false);
+            chainResult.put("error", e.getMessage());
+            chainResult.put("step", "exception");
+        }
+        
+        return ResponseEntity.ok(chainResult);
     }
 } 

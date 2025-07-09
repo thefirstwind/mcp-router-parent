@@ -6,17 +6,26 @@ spring:
   ai:
     mcp:
       server:
+        enabled: true
+        id: person-mcp-server
         name: person-mcp-server
         version: 1.0.0
         description: "Person management MCP server with Spring AI tools"
-        type: ASYNC  # Recommended for reactive applications
-        instructions: "This reactive server provides person management tools and resources"
-        sse-message-endpoint: /mcp/messages
-        capabilities:
-          tool: true
-          resource: true
-          prompt: true
-          completion: true
+        transportType: sse
+        router:
+          url: http://localhost:8080
+          auto-register: true
+          registration-endpoint: /api/mcp/servers/
+          heartbeat-endpoint: /api/mcp/servers/{serverName}/heartbeat
+          heartbeat-interval: 30000
+
+        endpoints:
+          base-url: http://localhost:8060
+          mcp-endpoint: /mcp/jsonrpc
+          health-endpoint: /actuator/health
+        # The 'registration' block below is not used by McpRouterRegistrationConfig and can be removed later
+        registration:
+          enabled: false
     alibaba:
       mcp:
         nacos:
@@ -25,9 +34,9 @@ spring:
           server-addr: 127.0.0.1:8848
           username: nacos
           password: nacos
-          registry:
-            enabled: true
-            service-group: mcp-server
+#          registry:
+#            enabled: true
+#            service-group: mcp-server
   sql:
     init:
       mode: always

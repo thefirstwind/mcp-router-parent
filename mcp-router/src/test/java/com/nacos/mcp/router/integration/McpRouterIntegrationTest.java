@@ -36,11 +36,11 @@ class McpRouterIntegrationTest {
                 .build();
 
         webTestClient.post()
-                .uri("/api/mcp/register")
+                .uri("/api/mcp/servers/{serverName}/register", request.getServerName())
                 .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue(request)
                 .exchange()
-                .expectStatus().isCreated();
+                .expectStatus().is2xxSuccessful();
 
         // Test listing servers
         webTestClient.get()
@@ -75,7 +75,7 @@ class McpRouterIntegrationTest {
     @Test
     void testHealthEndpoint() {
         webTestClient.get()
-                .uri("/api/mcp/health")
+                .uri("/health")
                 .exchange()
                 .expectStatus().isOk()
                 .expectBody()

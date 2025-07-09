@@ -2,8 +2,11 @@ package com.nacos.mcp.router.config;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import lombok.Data;
+import lombok.Builder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.stereotype.Component;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.reactive.CorsWebFilter;
 import org.springframework.web.cors.reactive.UrlBasedCorsConfigurationSource;
@@ -13,6 +16,10 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Supplier;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
+import java.time.LocalDateTime;
+import java.util.HashMap;
 
 /**
  * Enhanced Spring AI MCP Configuration with comprehensive error handling and monitoring
@@ -185,77 +192,92 @@ public class SpringAiConfig {
     }
 
     /**
-     * Performance monitoring for tool executions with metrics collection
+     * Enhanced performance monitor for tool executions
      */
     @Bean
     public ToolExecutionMonitor toolExecutionMonitor() {
         return new ToolExecutionMonitor();
     }
 
+    @Component
     public static class ToolExecutionMonitor {
-        private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(ToolExecutionMonitor.class);
-        private static final org.slf4j.Logger metricsLog = org.slf4j.LoggerFactory.getLogger("metrics.tool-execution");
+        private final Map<String, ToolMetrics> toolMetrics = new ConcurrentHashMap<>();
+        private final AtomicLong totalExecutions = new AtomicLong(0);
+        private final AtomicLong totalErrors = new AtomicLong(0);
 
-        /**
-         * Monitor tool execution with comprehensive performance metrics
-         */
-        public <T> T monitorExecution(String toolName, String requestId, Supplier<T> execution) {
-            long startTime = System.currentTimeMillis();
-            String executionId = requestId != null ? requestId : UUID.randomUUID().toString().substring(0, 8);
-            
-            log.info("Tool execution started [executionId={}]: tool={}", executionId, toolName);
-            
-            try {
-                T result = execution.get();
-                long duration = System.currentTimeMillis() - startTime;
-                
-                // Log execution success
-                log.info("Tool execution completed [executionId={}]: tool={}, duration={}ms, status=SUCCESS", 
-                        executionId, toolName, duration);
-                
-                // Log metrics
-                metricsLog.info("tool_execution,tool={},status=success,duration={}", toolName, duration);
-                
-                // Performance warnings
-                if (duration > 10000) { // 10 seconds threshold
-                    log.warn("Very slow tool execution detected [executionId={}]: tool={}, duration={}ms", 
-                            executionId, toolName, duration);
-                } else if (duration > 5000) { // 5 seconds threshold
-                    log.warn("Slow tool execution detected [executionId={}]: tool={}, duration={}ms", 
-                            executionId, toolName, duration);
-                }
-                
-                return result;
-                
-            } catch (Exception e) {
-                long duration = System.currentTimeMillis() - startTime;
-                
-                log.error("Tool execution failed [executionId={}]: tool={}, duration={}ms, error={}, status=FAILED", 
-                        executionId, toolName, duration, e.getMessage());
-                
-                // Log error metrics
-                metricsLog.error("tool_execution,tool={},status=error,duration={},error_type={}", 
-                        toolName, duration, e.getClass().getSimpleName());
-                
-                throw e;
-            }
+        @Data
+        @Builder
+        public static class ToolMetrics {
+            private String toolName;
+            private long executionCount;
+            private long errorCount;
+            private long totalDuration;
+            private long averageDuration;
+            private long minDuration;
+            private long maxDuration;
+            private LocalDateTime lastExecution;
+            private double errorRate;
         }
 
-        /**
-         * Monitor async operations with timeout handling
-         */
-        public <T> T monitorAsyncExecution(String operation, String requestId, Supplier<T> execution, long timeoutMs) {
-            return monitorExecution(operation, requestId, () -> {
-                long startTime = System.currentTimeMillis();
-                T result = execution.get();
-                long duration = System.currentTimeMillis() - startTime;
-                
-                if (duration > timeoutMs) {
-                    throw new RuntimeException("Operation exceeded timeout: " + duration + "ms > " + timeoutMs + "ms");
+        public void recordExecution(String toolName, long duration, boolean success) {
+            totalExecutions.incrementAndGet();
+            if (!success) {
+                totalErrors.incrementAndGet();
+            }
+
+            toolMetrics.compute(toolName, (key, existing) -> {
+                if (existing == null) {
+                    return ToolMetrics.builder()
+                        .toolName(toolName)
+                        .executionCount(1)
+                        .errorCount(success ? 0 : 1)
+                        .totalDuration(duration)
+                        .averageDuration(duration)
+                        .minDuration(duration)
+                        .maxDuration(duration)
+                        .lastExecution(LocalDateTime.now())
+                        .errorRate(success ? 0.0 : 1.0)
+                        .build();
+                } else {
+                    long newExecutionCount = existing.getExecutionCount() + 1;
+                    long newErrorCount = existing.getErrorCount() + (success ? 0 : 1);
+                    long newTotalDuration = existing.getTotalDuration() + duration;
+                    long newAverageDuration = newTotalDuration / newExecutionCount;
+                    
+                    return ToolMetrics.builder()
+                        .toolName(toolName)
+                        .executionCount(newExecutionCount)
+                        .errorCount(newErrorCount)
+                        .totalDuration(newTotalDuration)
+                        .averageDuration(newAverageDuration)
+                        .minDuration(Math.min(existing.getMinDuration(), duration))
+                        .maxDuration(Math.max(existing.getMaxDuration(), duration))
+                        .lastExecution(LocalDateTime.now())
+                        .errorRate((double) newErrorCount / newExecutionCount)
+                        .build();
                 }
-                
-                return result;
             });
+        }
+
+        public Map<String, ToolMetrics> getAllMetrics() {
+            return new HashMap<>(toolMetrics);
+        }
+
+        public ToolMetrics getMetrics(String toolName) {
+            return toolMetrics.get(toolName);
+        }
+
+        public Map<String, Object> getOverallStats() {
+            long total = totalExecutions.get();
+            long errors = totalErrors.get();
+            
+            Map<String, Object> stats = new HashMap<>();
+            stats.put("totalExecutions", total);
+            stats.put("totalErrors", errors);
+            stats.put("overallErrorRate", total > 0 ? (double) errors / total : 0.0);
+            stats.put("uniqueTools", toolMetrics.size());
+            stats.put("timestamp", LocalDateTime.now());
+            return stats;
         }
     }
 

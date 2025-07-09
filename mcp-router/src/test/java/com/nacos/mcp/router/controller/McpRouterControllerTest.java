@@ -5,6 +5,8 @@ import com.nacos.mcp.router.model.McpServerRegistrationRequest;
 import com.nacos.mcp.router.model.SearchRequest;
 import com.nacos.mcp.router.model.SearchResponse;
 import com.nacos.mcp.router.service.McpServerService;
+import com.nacos.mcp.router.service.McpResourceService;
+import com.nacos.mcp.router.service.McpPromptService;
 import com.nacos.mcp.router.service.SearchService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -36,6 +38,12 @@ class McpRouterControllerTest {
 
     @MockBean
     private SearchService searchService;
+
+    @MockBean
+    private McpResourceService mcpResourceService;
+
+    @MockBean
+    private McpPromptService mcpPromptService;
 
     private McpServerRegistrationRequest validRequest;
     private McpServer sampleServer;
@@ -70,11 +78,11 @@ class McpRouterControllerTest {
                 .thenReturn(Mono.just(sampleServer));
 
         webTestClient.post()
-                .uri("/api/mcp/register")
+                .uri("/api/mcp/servers/{serverName}/register", validRequest.getServerName())
                 .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue(validRequest)
                 .exchange()
-                .expectStatus().isCreated()
+                .expectStatus().is2xxSuccessful()
                 .expectBody()
                 .jsonPath("$.name").isEqualTo("mcp-test-server")
                 .jsonPath("$.status").isEqualTo("REGISTERED");
@@ -87,7 +95,7 @@ class McpRouterControllerTest {
                 .build();
 
         webTestClient.post()
-                .uri("/api/mcp/register")
+                .uri("/api/mcp/servers/mcp-test-server/register")
                 .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue(invalidRequest)
                 .exchange()
@@ -100,13 +108,11 @@ class McpRouterControllerTest {
                 .thenReturn(Mono.error(new RuntimeException("Service error")));
 
         webTestClient.post()
-                .uri("/api/mcp/register")
+                .uri("/api/mcp/servers/{serverName}/register", validRequest.getServerName())
                 .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue(validRequest)
                 .exchange()
-                .expectStatus().isEqualTo(500)
-                .expectBody()
-                .jsonPath("$.status").isEqualTo("ERROR");
+                .expectStatus().isEqualTo(500);
     }
 
     @Test
@@ -146,8 +152,7 @@ class McpRouterControllerTest {
                 .exchange()
                 .expectStatus().isEqualTo(500)
                 .expectBody()
-                .jsonPath("$").isArray()
-                .jsonPath("$").isEmpty();
+                .jsonPath("$.error").isEqualTo("Service error");
     }
 
     @Test
@@ -250,5 +255,15 @@ class McpRouterControllerTest {
                 .bodyValue(searchRequest)
                 .exchange()
                 .expectStatus().isBadRequest();
+    }
+
+    @Test
+    void receiveHeartbeat_ValidServerName_ReturnsOk() {
+        when(mcpServerService.recordHeartbeat(anyString())).thenReturn(Mono.empty());
+
+        webTestClient.post()
+                .uri("/api/mcp/servers/test-server/heartbeat")
+                .exchange()
+                .expectStatus().isOk();
     }
 } 

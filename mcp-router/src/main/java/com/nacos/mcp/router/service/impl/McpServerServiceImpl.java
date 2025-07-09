@@ -1,9 +1,11 @@
 package com.nacos.mcp.router.service.impl;
 
+import com.alibaba.nacos.api.config.ConfigService;
 import com.alibaba.nacos.api.naming.NamingService;
 import com.alibaba.nacos.api.naming.pojo.Instance;
 import com.alibaba.nacos.api.naming.pojo.ListView;
-import com.nacos.mcp.router.config.NacosProperties;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nacos.mcp.router.model.McpServer;
 import com.nacos.mcp.router.model.McpServerRegistrationRequest;
 import com.nacos.mcp.router.model.McpTool;
@@ -13,6 +15,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
+import com.alibaba.nacos.api.exception.NacosException;
 
 import java.time.LocalDateTime;
 import java.util.*;
@@ -27,8 +30,12 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class McpServerServiceImpl implements McpServerService {
 
+    private static final String GROUP_NAME = "MCP_SERVER_GROUP";
+    private static final String TOOLS_CONFIG_GROUP = "MCP_TOOLS";
+
     private final NamingService namingService;
-    private final NacosProperties nacosProperties;
+    private final ConfigService configService;
+    private final ObjectMapper objectMapper;
     private final Map<String, McpServer> connectedServers = new ConcurrentHashMap<>();
 
     @Override
@@ -85,12 +92,8 @@ public class McpServerServiceImpl implements McpServerService {
     public Mono<McpServer> getMcpServer(String serverName) {
         return Mono.fromCallable(() -> {
             try {
-                List<Instance> instances = namingService.getAllInstances("mcp-server");
-                return instances.stream()
-                        .filter(instance -> serverName.equals(instance.getMetadata().get("serverName")))
-                        .findFirst()
-                        .map(this::convertToMcpServer)
-                        .orElse(null);
+                Instance instance = namingService.selectOneHealthyInstance(serverName, GROUP_NAME);
+                return convertToMcpServer(instance);
             } catch (Exception e) {
                 log.error("Failed to get MCP server {} from Nacos", serverName, e);
                 return null;
@@ -100,45 +103,46 @@ public class McpServerServiceImpl implements McpServerService {
 
     @Override
     public Mono<Boolean> removeMcpServer(String serverName) {
-        return Mono.fromCallable(() -> {
-            connectedServers.remove(serverName);
-            log.info("Removed MCP server: {}", serverName);
-            return true;
-        }).subscribeOn(Schedulers.boundedElastic());
+        return unregisterMcpServer(serverName);
     }
 
     @Override
     public Mono<McpServer> registerMcpServer(McpServerRegistrationRequest request) {
+        return registerMcpServerWithTools(request);
+    }
+
+    @Override
+    public Mono<McpServer> registerMcpServerWithTools(McpServerRegistrationRequest request) {
         return Mono.fromCallable(() -> {
             try {
                 Instance instance = new Instance();
-                instance.setIp("127.0.0.1"); // Default IP
-                instance.setPort(8080); // Default port
-                instance.setServiceName("mcp-server");
-                
+                instance.setIp(request.getIp());
+                instance.setPort(request.getPort());
+                instance.setServiceName(request.getServerName());
+                instance.setWeight(request.getWeight());
+                instance.setEnabled(request.getEnabled());
+                instance.setClusterName(request.getCluster());
+
                 Map<String, String> metadata = new HashMap<>();
                 metadata.put("serverName", request.getServerName());
                 metadata.put("version", request.getVersion());
                 metadata.put("status", McpServer.ServerStatus.REGISTERED.name());
                 metadata.put("description", request.getDescription());
                 metadata.put("transportType", request.getTransportType());
+                metadata.put("registrationTime", LocalDateTime.now().toString());
                 instance.setMetadata(metadata);
-                
-                namingService.registerInstance("mcp-server", instance);
-                
-                McpServer server = McpServer.builder()
-                        .name(request.getServerName())
-                        .description(request.getDescription())
-                        .version(request.getVersion())
-                        .transportType(request.getTransportType())
-                        .installCommand(request.getInstallCommand())
-                        .status(McpServer.ServerStatus.REGISTERED)
-                        .registrationTime(LocalDateTime.now())
-                        .lastUpdateTime(LocalDateTime.now())
-                        .build();
-                
-                log.info("Registered MCP server: {}", request.getServerName());
-                return server;
+
+                namingService.registerInstance(request.getServerName(), GROUP_NAME, instance);
+                log.info("Registered service instance for {} to Nacos discovery.", request.getServerName());
+
+                if (request.getTools() != null && !request.getTools().isEmpty()) {
+                    String toolsJson = objectMapper.writeValueAsString(request.getTools());
+                    String dataId = "tools." + request.getServerName();
+                    configService.publishConfig(dataId, TOOLS_CONFIG_GROUP, toolsJson);
+                    log.info("Published tools config for {}.", request.getServerName());
+                }
+
+                return convertToMcpServer(instance);
             } catch (Exception e) {
                 log.error("Failed to register MCP server: {}", request.getServerName(), e);
                 throw new RuntimeException("Registration failed", e);
@@ -150,22 +154,16 @@ public class McpServerServiceImpl implements McpServerService {
     public Mono<Boolean> unregisterMcpServer(String serverName) {
         return Mono.fromCallable(() -> {
             try {
-                List<Instance> instances = namingService.getAllInstances("mcp-server");
-                instances.stream()
-                        .filter(instance -> serverName.equals(instance.getMetadata().get("serverName")))
-                        .forEach(instance -> {
-                            try {
-                                namingService.deregisterInstance("mcp-server", instance);
-                                log.info("Unregistered MCP server: {}", serverName);
-                            } catch (Exception e) {
-                                log.error("Failed to unregister instance for server: {}", serverName, e);
-                            }
-                        });
-                
-                connectedServers.remove(serverName);
+                Instance instance = namingService.selectOneHealthyInstance(serverName, GROUP_NAME);
+                if (instance != null) {
+                    namingService.deregisterInstance(serverName, GROUP_NAME, instance);
+                    log.info("Unregistered MCP server: {}", serverName);
+                } else {
+                    log.warn("Attempted to unregister a server that was not found or not healthy: {}", serverName);
+                }
                 return true;
             } catch (Exception e) {
-                log.error("Failed to unregister MCP server: {}", serverName, e);
+                log.error("Failed to unregister server {}", serverName, e);
                 return false;
             }
         }).subscribeOn(Schedulers.boundedElastic());
@@ -173,46 +171,34 @@ public class McpServerServiceImpl implements McpServerService {
 
     @Override
     public Mono<List<McpServer>> listAllMcpServers() {
-        log.info("Listing all MCP servers from Nacos registry");
-        
         return Mono.fromCallable(() -> {
             try {
-                var serviceListView = namingService.getServicesOfServer(1, Integer.MAX_VALUE);
-                if (serviceListView == null || serviceListView.getData() == null) {
-                    log.warn("No services found in Nacos registry or Nacos is not available");
-                    return new ArrayList<>();
+                ListView<String> services = namingService.getServicesOfServer(1, 100, GROUP_NAME);
+                if (services == null) {
+                    return Collections.<McpServer>emptyList();
                 }
-                
-                List<String> services = serviceListView.getData();
                 List<McpServer> servers = new ArrayList<>();
-                
-                for (String serviceName : services) {
-                    // Only process MCP services (those with 'mcp' in the name)
-                    if (serviceName.toLowerCase().contains("mcp")) {
-                        try {
-                            List<Instance> instances = namingService.getAllInstances(serviceName);
-                            if (instances != null) {
-                                for (Instance instance : instances) {
-                                    if (instance.isEnabled()) {
-                                        McpServer server = convertInstanceToMcpServer(instance, serviceName);
-                                        servers.add(server);
-                                    }
-                                }
-                            }
-                        } catch (Exception instanceException) {
-                            log.warn("Failed to get instances for service '{}': {}", serviceName, instanceException.getMessage());
+                for (String serviceName : services.getData()) {
+                    List<Instance> instances = namingService.getAllInstances(serviceName, GROUP_NAME);
+                    if (instances != null && !instances.isEmpty()) {
+                        McpServer server = convertToMcpServer(instances.get(0));
+                        if (server != null) {
+                            servers.add(server);
                         }
                     }
                 }
-                
-                log.info("Found {} MCP servers from Nacos registry", servers.size());
                 return servers;
-                
             } catch (Exception e) {
-                log.error("Failed to list MCP servers from Nacos: {}", e.getMessage(), e);
-                return new ArrayList<>(); // Return empty list instead of mock data
+                log.error("Failed to list MCP servers from Nacos", e);
+                return Collections.<McpServer>emptyList();
             }
-        });
+        }).subscribeOn(Schedulers.boundedElastic());
+    }
+
+    @Override
+    public Mono<Boolean> updateServerHeartbeat(String serverName, Long timestamp, String status) {
+        log.warn("updateServerHeartbeat is not implemented yet");
+        return Mono.just(false);
     }
 
     public Mono<List<McpServer>> searchMcpServers(String query) {
@@ -235,19 +221,56 @@ public class McpServerServiceImpl implements McpServerService {
                server.getProvider().toLowerCase().contains(lowerQuery);
     }
 
+    @Override
+    public Mono<Void> recordHeartbeat(String serverName) {
+        return Mono.defer(() -> {
+            try {
+                Instance instance = namingService.selectOneHealthyInstance(serverName, GROUP_NAME);
+                if (instance != null) {
+                    log.info("Successfully found instance for heartbeat: {}", instance.getInstanceId());
+                } else {
+                    log.warn("No healthy instance found for server: {}", serverName);
+                }
+                return Mono.empty();
+            } catch (NacosException e) {
+                log.error("Error recording heartbeat for server: {}", serverName, e);
+                return Mono.error(new RuntimeException(e));
+            }
+        }).subscribeOn(Schedulers.boundedElastic()).then();
+    }
+
     private McpServer convertToMcpServer(Instance instance) {
+        if (instance == null) {
+            return null;
+        }
+
         Map<String, String> metadata = instance.getMetadata();
-        return McpServer.builder()
-                .name(metadata.getOrDefault("serverName", "unknown"))
-                .version(metadata.getOrDefault("version", "1.0.0"))
-                .description(metadata.getOrDefault("description", "MCP Server from Nacos"))
-                .transportType(metadata.getOrDefault("transportType", "stdio"))
-                .endpoint(String.format("http://%s:%d", instance.getIp(), instance.getPort()))
-                .provider("Nacos")
-                .status(instance.isEnabled() ? McpServer.ServerStatus.CONNECTED : McpServer.ServerStatus.DISCONNECTED)
-                .registrationTime(LocalDateTime.now())
-                .lastUpdateTime(LocalDateTime.now())
-                .build();
+        String serverName = metadata.get("serverName");
+        if (serverName == null || serverName.isEmpty()) {
+            serverName = instance.getServiceName();
+        }
+
+        McpServer.McpServerBuilder serverBuilder = McpServer.builder()
+                .name(serverName)
+                .description(metadata.get("description"))
+                .version(metadata.get("version"))
+                .transportType(metadata.get("transportType"))
+                .endpoint(instance.getIp() + ":" + instance.getPort())
+                .status(McpServer.ServerStatus.valueOf(metadata.getOrDefault("status", "UNKNOWN")));
+
+        try {
+            String dataId = "tools." + serverName;
+            String toolsJson = configService.getConfig(dataId, TOOLS_CONFIG_GROUP, 5000);
+            if (toolsJson != null && !toolsJson.isEmpty()) {
+                List<McpTool> tools = objectMapper.readValue(toolsJson, new TypeReference<List<McpTool>>() {});
+                serverBuilder.tools(tools);
+                log.info("Successfully loaded {} tools for server {}", tools.size(), serverName);
+            }
+        } catch (Exception e) {
+            log.error("Failed to load or parse tools for server {}: {}", serverName, e.getMessage());
+        }
+
+        return serverBuilder.build();
     }
 
     private McpServer convertInstanceToMcpServer(Instance instance, String serviceName) {

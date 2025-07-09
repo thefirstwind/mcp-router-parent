@@ -1,6 +1,7 @@
 package com.nacos.mcp.server;
 
-import com.nacos.mcp.server.tools.PersonTools;
+import com.nacos.mcp.server.repository.PersonRepository;
+import com.nacos.mcp.server.tools.PersonQueryTools;
 import org.springframework.ai.tool.ToolCallbackProvider;
 import org.springframework.ai.tool.method.MethodToolCallbackProvider;
 import org.springframework.boot.SpringApplication;
@@ -27,7 +28,12 @@ public class McpServerApplication {
      * 这确保所有 @Tool 注解的方法都能被正确注册到 MCP 服务器
      */
     @Bean
-    public ToolCallbackProvider personToolsCallbackProvider(PersonTools personTools) {
-        return MethodToolCallbackProvider.builder().toolObjects(personTools).build();
+    public ToolCallbackProvider personToolsCallbackProvider(PersonQueryTools personQueryTools) {
+        return MethodToolCallbackProvider.builder().toolObjects(personQueryTools).build();
+    }
+
+    @Bean
+    public PersonQueryTools personTools(PersonRepository personRepository) {
+        return new PersonQueryTools(personRepository);
     }
 }

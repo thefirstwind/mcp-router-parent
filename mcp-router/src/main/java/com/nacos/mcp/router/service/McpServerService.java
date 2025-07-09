@@ -55,6 +55,14 @@ public interface McpServerService {
     Mono<McpServer> registerMcpServer(McpServerRegistrationRequest request);
 
     /**
+     * Register a MCP server to Nacos with tools
+     *
+     * @param request MCP server registration request
+     * @return registered MCP server information
+     */
+    Mono<McpServer> registerMcpServerWithTools(McpServerRegistrationRequest request);
+
+    /**
      * Unregister a MCP server from Nacos
      *
      * @param serverName MCP server name
@@ -76,4 +84,30 @@ public interface McpServerService {
      * @return true if server is online, false otherwise
      */
     Mono<Boolean> pingServer(String serverName);
+
+    /**
+     * Update server heartbeat
+     *
+     * @param serverName MCP server name
+     * @param timestamp heartbeat timestamp
+     * @param status server status
+     * @return true if heartbeat updated successfully, false otherwise
+     */
+    Mono<Boolean> updateServerHeartbeat(String serverName, Long timestamp, String status);
+
+    /**
+     * Search MCP servers
+     *
+     * @param query search query
+     * @return list of matching MCP servers
+     */
+    Mono<List<McpServer>> searchMcpServers(String query);
+
+    /**
+     * Record heartbeat for a MCP server
+     *
+     * @param serverName MCP server name
+     * @return operation result
+     */
+    Mono<Void> recordHeartbeat(String serverName);
 } 
