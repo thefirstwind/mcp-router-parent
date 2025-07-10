@@ -103,6 +103,7 @@ public class McpServerRegistrationRequest {
     private String baseUrl;
     private String mcpEndpoint;
     private String healthEndpoint;
+    private String endpoint;
     
     // Server capabilities
     private Map<String, Object> capabilities;

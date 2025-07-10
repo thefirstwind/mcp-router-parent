@@ -102,24 +102,23 @@ fi
 echo -e "${BLUE}🔀 启动 MCP Router (端口 8050)...${NC}"
 nohup java -jar mcp-router/target/nacos-mcp-router-1.0.0.jar > logs/mcp-router-demo.log 2>&1 &
 MCP_ROUTER_PID=$!
-sleep 10 # Wait for the router to initialize
+wait_for_service 8050 "/actuator/health" "MCP Router"
 
 # 启动 MCP Server V2
 echo -e "${BLUE}🖥️  启动 MCP Server V2 (端口 8061)...${NC}"
 nohup java -jar mcp-server-v2/target/mcp-server-v2-1.0.0.jar > logs/mcp-server-v2-demo.log 2>&1 &
 SERVER_V2_PID=$!
-sleep 15 # Wait for the server to initialize and register
+wait_for_service 8061 "/actuator/health" "MCP Server V2"
 
 # 启动 MCP Client
 echo -e "${BLUE}🧑‍💻 启动 MCP Client (端口 8070)...${NC}"
 nohup java -jar mcp-client/target/mcp-client-1.0.0.jar > logs/mcp-client-demo.log 2>&1 &
 CLIENT_PID=$!
-sleep 10 # Wait for the client to initialize
+wait_for_service 8070 "/actuator/health" "MCP Client"
 
 echo ""
 echo -e "${GREEN}🚀 所有服务启动完成！${NC}"
 echo "========================"
-echo ""
 
 # 等待 server 完成向 router 注册
 echo -e "${YELLOW}⏳ 等待 MCP Server V2 向 Router 注册并发现工具...${NC}"

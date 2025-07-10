@@ -70,6 +70,7 @@ public class CompassSearchProvider implements SearchProvider {
                     .relevanceScore(0.9)
                     .registrationTime(LocalDateTime.now())
                     .lastUpdateTime(LocalDateTime.now())
+                    .tools(Collections.emptyList())
                     .build(),
             McpServer.builder()
                     .name("mcp-database-server")
@@ -82,6 +83,7 @@ public class CompassSearchProvider implements SearchProvider {
                     .relevanceScore(0.8)
                     .registrationTime(LocalDateTime.now())
                     .lastUpdateTime(LocalDateTime.now())
+                    .tools(Collections.emptyList())
                     .build()
         );
     }

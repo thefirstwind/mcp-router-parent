@@ -30,6 +30,19 @@ spring:
         version: "1.0.0"
         transport-type: sse # Use sse for reactive transport
         enabled: true
+        tools: >
+          [
+            {
+              "name": "getAllPersons",
+              "description": "Get all persons from the database.",
+              "javaFunctionName": "com.nacos.mcp.server.v2.tools.PersonQueryTools.getAllPersons"
+            },
+            {
+              "name": "addPerson",
+              "description": "Add a new person to the database.",
+              "javaFunctionName": "com.nacos.mcp.server.v2.tools.PersonModifyTools.addPerson"
+            }
+          ]
   cloud:
     nacos:
       discovery:

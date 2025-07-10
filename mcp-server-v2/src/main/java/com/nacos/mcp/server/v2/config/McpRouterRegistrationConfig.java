@@ -29,7 +29,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-@Configuration
+//@Configuration
 @EnableRetry
 @RequiredArgsConstructor
 @Slf4j

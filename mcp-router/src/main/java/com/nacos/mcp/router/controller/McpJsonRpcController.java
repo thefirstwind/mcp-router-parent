@@ -166,54 +166,64 @@ public class McpJsonRpcController {
                 ));
     }
 
-    @SuppressWarnings("unchecked")
     private Mono<McpJsonRpcResponse> handleToolsCall(McpJsonRpcRequest request) {
-        log.info("Handling tools/call request - executing tool");
-        
+        log.info("Handling tools/call request - executing tool via intelligent routing");
+
         try {
             Map<String, Object> params = (Map<String, Object>) request.getParams();
             String toolName = (String) params.get("name");
             Map<String, Object> arguments = (Map<String, Object>) params.get("arguments");
-            
-            log.info("Calling tool: {} with arguments: {}", toolName, arguments);
-            
-            // Handle built-in demonstration tools
+
+            if (toolName == null || toolName.isEmpty()) {
+                return Mono.just(McpJsonRpcResponse.error(
+                        McpJsonRpcResponse.ErrorCodes.INVALID_PARAMS,
+                        "Tool name ('name') is missing in params.",
+                        request.getId()));
+            }
+
+            log.info("Intelligently routing tool call: {} with arguments: {}", toolName, arguments);
+
+            // Handle built-in demonstration tools first
             if (isBuiltInTool(toolName)) {
                 return handleBuiltInToolCall(toolName, arguments, request.getId());
             }
-            
-            // Handle registered MCP server tools
-            return mcpServerService.listAllMcpServers()
-                    .flatMap(servers -> {
-                        for (McpServer server : servers) {
-                            if (server.getTools().stream().anyMatch(tool -> tool.getName().equals(toolName))) {
-                                return mcpServerService.useTool(server.getName(), toolName, arguments)
-                                        .map(result -> {
-                                            Map<String, Object> response = new HashMap<>();
-                                            response.put("content", List.of(Map.of(
-                                                    "type", "text",
-                                                    "text", result.toString()
-                                            )));
-                                            response.put("isError", false);
-                                            
-                                            log.info("Tool execution completed successfully");
-                                            return McpJsonRpcResponse.success(response, request.getId());
-                                        });
-                            }
+
+            // Delegate to the service layer to find the server and execute the tool
+            return mcpServerService.useTool(toolName, arguments)
+                    .map(result -> {
+                        Map<String, Object> response = new HashMap<>();
+                        // Ensure the result is formatted in a way the client expects.
+                        // The original code wrapped it in a list of text objects.
+                        response.put("content", List.of(Map.of(
+                                "type", "text",
+                                "text", result.toString()
+                        )));
+                        response.put("isError", false);
+
+                        log.info("Tool execution for '{}' completed successfully via intelligent routing.", toolName);
+                        return McpJsonRpcResponse.success(response, request.getId());
+                    })
+                    .onErrorResume(e -> {
+                        log.error("Failed to execute tool '{}' via intelligent routing: {}", toolName, e.getMessage());
+                        // Check if the error is because the tool was not found
+                        if (e.getMessage() != null && e.getMessage().contains("No server found providing tool")) {
+                            return Mono.just(McpJsonRpcResponse.error(
+                                    McpJsonRpcResponse.ErrorCodes.TOOL_NOT_FOUND,
+                                    "Tool not found: " + toolName,
+                                    request.getId()));
                         }
-                        
-                        log.warn("Tool not found: {}", toolName);
+                        // Handle other potential errors (e.g., tool execution failed)
                         return Mono.just(McpJsonRpcResponse.error(
-                                McpJsonRpcResponse.ErrorCodes.TOOL_NOT_FOUND,
-                                "Tool not found: " + toolName,
-                                request.getId()
-                        ));
+                                McpJsonRpcResponse.ErrorCodes.INTERNAL_ERROR,
+                                "Error executing tool '" + toolName + "': " + e.getMessage(),
+                                request.getId()));
                     });
+
         } catch (Exception e) {
-            log.error("Error calling tool: {}", e.getMessage(), e);
+            log.error("Error parsing tool call request: {}", e.getMessage(), e);
             return Mono.just(McpJsonRpcResponse.error(
                     McpJsonRpcResponse.ErrorCodes.INVALID_PARAMS,
-                    "Invalid parameters: " + e.getMessage(),
+                    "Invalid parameters for tools/call: " + e.getMessage(),
                     request.getId()
             ));
         }

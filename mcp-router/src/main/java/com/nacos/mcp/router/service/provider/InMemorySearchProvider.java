@@ -10,7 +10,7 @@ import reactor.core.publisher.Mono;
 import java.util.List;
 import java.util.stream.Collectors;
 
-@Component
+//@Component
 @RequiredArgsConstructor
 public class InMemorySearchProvider implements SearchProvider {
 

@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
+import jakarta.annotation.PostConstruct;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -17,15 +18,22 @@ import java.util.Map;
 @Service
 public class McpRouterService {
 
-    private final WebClient webClient;
+    private WebClient webClient;
+    private final WebClient.Builder webClientBuilder;
     private final ObjectMapper objectMapper;
 
     @Value("${mcp.router.url:http://localhost:8050}")
     private String routerUrl;
 
     public McpRouterService(WebClient.Builder webClientBuilder, ObjectMapper objectMapper) {
-        this.webClient = webClientBuilder.build();
+        this.webClientBuilder = webClientBuilder;
         this.objectMapper = objectMapper;
+    }
+
+    @PostConstruct
+    public void init() {
+        this.webClient = webClientBuilder.baseUrl(routerUrl).build();
+        log.info("McpRouterService initialized with router URL: {}", routerUrl);
     }
 
     public Mono<String> getCompletions(String model, String prompt) {
@@ -153,7 +161,7 @@ public class McpRouterService {
 
     public Mono<String> listTools(String task) {
         return this.webClient.get()
-                .uri(routerUrl + "/api/mcp/search?taskDescription={task}", task)
+                .uri("/api/mcp/search?taskDescription={task}", task)
                 .retrieve()
                 .bodyToMono(String.class);
     }
@@ -161,17 +169,25 @@ public class McpRouterService {
     public Mono<String> callTool(String jsonPayload) {
         try {
             JsonNode rootNode = objectMapper.readTree(jsonPayload);
-            String serverName = rootNode.get("serverName").asText();
+            // The "serverName" is not needed because the router will find the correct
+            // server based on the toolName. This was the source of the NPE.
             String toolName = rootNode.get("toolName").asText();
             JsonNode argsNode = rootNode.get("arguments");
 
+            // Construct the JSON-RPC request body for the router
+            Map<String, Object> rpcParams = new HashMap<>();
+            rpcParams.put("name", toolName);
+            rpcParams.put("arguments", argsNode);
+
             Map<String, Object> requestBody = new HashMap<>();
-            requestBody.put("serverName", serverName);
-            requestBody.put("toolName", toolName);
-            requestBody.put("arguments", argsNode);
+            requestBody.put("jsonrpc", "2.0");
+            requestBody.put("method", "tools/call");
+            requestBody.put("params", rpcParams);
+            requestBody.put("id", "1");
+
 
             return this.webClient.post()
-                    .uri(routerUrl + "/api/v1/jsonrpc")
+                    .uri("/mcp/jsonrpc") // Correct JSON-RPC endpoint on the router
                     .contentType(MediaType.APPLICATION_JSON)
                     .bodyValue(requestBody)
                     .retrieve()

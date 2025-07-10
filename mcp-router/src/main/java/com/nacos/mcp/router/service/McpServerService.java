@@ -32,6 +32,15 @@ public interface McpServerService {
     Mono<Object> useTool(String serverName, String toolName, Map<String, Object> params);
 
     /**
+     * Use a tool from a MCP server
+     *
+     * @param toolName tool name
+     * @param params tool parameters
+     * @return tool execution result
+     */
+    Mono<Object> useTool(String toolName, Map<String, Object> params);
+
+    /**
      * Get MCP server information
      *
      * @param serverName MCP server name

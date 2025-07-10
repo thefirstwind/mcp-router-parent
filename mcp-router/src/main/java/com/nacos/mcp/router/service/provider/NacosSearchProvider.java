@@ -87,7 +87,7 @@ public class NacosSearchProvider implements SearchProvider {
                     .endpoint(String.format("http://%s:%d%s", instance.getIp(), instance.getPort(), contextPath))
                     .installCommand(metadata.getOrDefault("installCommand", ""))
                     .status(instance.isEnabled() ? McpServer.ServerStatus.CONNECTED : McpServer.ServerStatus.DISCONNECTED)
-                    .tools(Collections.emptyList()) // FIXME: Tools metadata is not available at registration time.
+                    .tools(parseTools(metadata.get("tools")))
                     .metadata(metadata.isEmpty() ? Collections.emptyMap() : 
                             metadata.entrySet().stream()
                                     .collect(Collectors.toMap(
