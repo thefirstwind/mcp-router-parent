@@ -1,4 +1,4 @@
-//package com.nacos.mcp.server.v2.config;
+//package com.nacos.mcp.server.v3.config;
 //
 //import lombok.RequiredArgsConstructor;
 //import lombok.extern.slf4j.Slf4j;

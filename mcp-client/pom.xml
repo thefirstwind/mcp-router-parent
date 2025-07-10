@@ -20,16 +20,19 @@
             <artifactId>spring-boot-starter-webflux</artifactId>
         </dependency>
 
-        <!-- Spring AI MCP Client -->
+        <!-- Spring AI Core MCP Client for WebFlux -->
         <dependency>
             <groupId>org.springframework.ai</groupId>
-            <artifactId>spring-ai-starter-mcp-client</artifactId>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.springframework.boot</groupId>
-                    <artifactId>spring-boot-starter-web</artifactId>
-                </exclusion>
-            </exclusions>
+            <artifactId>spring-ai-starter-mcp-client-webflux</artifactId>
+        </dependency>
+
+
+
+        <!-- MCP Router dependency for shared models -->
+        <dependency>
+            <groupId>com.nacos.mcp</groupId>
+            <artifactId>nacos-mcp-router</artifactId>
+            <version>${project.version}</version>
         </dependency>
 
         <!-- Spring Boot Actuator for health checks -->

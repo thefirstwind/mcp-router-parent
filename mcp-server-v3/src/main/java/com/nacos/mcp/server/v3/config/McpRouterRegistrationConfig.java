@@ -1,4 +1,4 @@
-//package com.nacos.mcp.server.v2.config;
+//package com.nacos.mcp.server.v3.config;
 //
 //import com.fasterxml.jackson.databind.ObjectMapper;
 //import lombok.Data;
@@ -82,8 +82,8 @@
 //
 //    private List<ToolDefinition> discoverTools() {
 //        List<ToolDefinition> toolDefinitions = new ArrayList<>();
-//        String[] toolBeanNames = applicationContext.getBeanNamesForType(com.nacos.mcp.server.v2.tools.PersonQueryTools.class);
-//        String[] toolBeanNames2 = applicationContext.getBeanNamesForType(com.nacos.mcp.server.v2.tools.PersonModifyTools.class);
+//        String[] toolBeanNames = applicationContext.getBeanNamesForType(com.nacos.mcp.server.v3.tools.PersonQueryTools.class);
+//        String[] toolBeanNames2 = applicationContext.getBeanNamesForType(com.nacos.mcp.server.v3.tools.PersonModifyTools.class);
 //
 //        List<String> allToolBeanNames = new ArrayList<>();
 //        Collections.addAll(allToolBeanNames, toolBeanNames);

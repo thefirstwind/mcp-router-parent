@@ -1,8 +1,8 @@
-package com.nacos.mcp.server.v2.config;
+package com.nacos.mcp.server.v3.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.nacos.mcp.server.v2.tools.PersonModifyTools;
-import com.nacos.mcp.server.v2.tools.PersonQueryTools;
+import com.nacos.mcp.server.v3.tools.PersonModifyTools;
+import com.nacos.mcp.server.v3.tools.PersonQueryTools;
 import org.springframework.ai.tool.ToolCallbackProvider;
 import org.springframework.ai.tool.method.MethodToolCallbackProvider;
 import org.springframework.context.annotation.Bean;

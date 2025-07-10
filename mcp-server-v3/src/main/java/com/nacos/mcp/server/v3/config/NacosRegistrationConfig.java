@@ -1,29 +1,26 @@
-package com.nacos.mcp.server.v2.config;
+package com.nacos.mcp.server.v3.config;
 
 import com.alibaba.cloud.nacos.NacosDiscoveryProperties;
 import com.alibaba.cloud.nacos.NacosServiceManager;
 import com.alibaba.cloud.nacos.registry.NacosRegistration;
 import com.alibaba.nacos.api.exception.NacosException;
 import com.alibaba.nacos.api.naming.pojo.Instance;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.nacos.mcp.server.v2.tools.PersonModifyTools;
-import com.nacos.mcp.server.v2.tools.PersonQueryTools;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
-import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationListener;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
 import org.springframework.aop.support.AopUtils;
-
-import java.lang.reflect.Method;
+import org.springframework.context.ApplicationContext;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.ai.tool.annotation.Tool;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import com.fasterxml.jackson.core.JsonProcessingException;
+
+import java.lang.reflect.Method;
 
 @Configuration
 public class NacosRegistrationConfig implements ApplicationListener<ApplicationReadyEvent> {

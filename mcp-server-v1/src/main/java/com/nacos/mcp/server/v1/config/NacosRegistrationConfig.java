@@ -1,4 +1,4 @@
-package com.nacos.mcp.server.v2.config;
+package com.nacos.mcp.server.v1.config;
 
 import com.alibaba.cloud.nacos.NacosDiscoveryProperties;
 import com.alibaba.cloud.nacos.NacosServiceManager;
@@ -7,8 +7,8 @@ import com.alibaba.nacos.api.exception.NacosException;
 import com.alibaba.nacos.api.naming.pojo.Instance;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.nacos.mcp.server.v2.tools.PersonModifyTools;
-import com.nacos.mcp.server.v2.tools.PersonQueryTools;
+import com.nacos.mcp.server.v1.tools.PersonModifyTools;
+import com.nacos.mcp.server.v1.tools.PersonQueryTools;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.tool.annotation.Tool;

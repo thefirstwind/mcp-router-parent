@@ -1,4 +1,14 @@
+server:
+  port: 8070
+
 spring:
+  application:
+    name: mcp-client
+  cloud:
+    nacos:
+      config:
+        import-check:
+          enabled: false
   ai:
     deepseek:
       api-key: "sk-c82a3957785d4c48b08a62e0e707ecf2"
@@ -6,54 +16,12 @@ spring:
       chat:
         options:
           model: deepseek-chat
-    
-    # 暂时禁用自动MCP连接，通过手动HTTP调用测试
-    mcp:
-      client:
-        enabled: false
-        # sse:
-        #   connections:
-        #     nacos-mcp-router:
-        #       url: http://localhost:8050/mcp/jsonrpc/sse
-        #       request-timeout: 30s
-        #       transport: sse
-
-# MCP客户端配置：通过mcp-router发现和调用MCP服务  
-mcp:
-  client:
-    # 服务发现配置
-    discovery:
-      enabled: false  # 暂时禁用自动发现
-      router-url: http://localhost:8050
-      servers-endpoint: /api/mcp/servers
-      refresh-interval: 60000  # 60秒刷新一次服务列表
-      
-    # 路由配置
-    routing:
-      enabled: true
-      router-base-url: http://localhost:8050
-      api-prefix: /api/mcp
-      
-    # 工具调用配置
-    tools:
-      enabled: true
-      timeout: 30000
-      retry-attempts: 3
-      
-    # 连接配置
-    connection:
-      pool-size: 10
-      timeout: 30000
 
 logging:
   level:
     org.springframework.ai: DEBUG
     com.nacos.mcp.client: DEBUG
     org.springframework.ai.mcp: DEBUG
-
-server:
-  port: 8070
-
 management:
   endpoints:
     web:

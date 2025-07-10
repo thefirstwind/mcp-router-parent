@@ -4,6 +4,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.reactive.function.server.RouterFunction;
 import org.springframework.web.reactive.function.server.ServerResponse;
+import org.springframework.web.reactive.function.client.WebClient;
 
 import static org.springframework.web.reactive.function.server.RouterFunctions.route;
 import static org.springframework.web.reactive.function.server.RequestPredicates.GET;
@@ -15,5 +16,10 @@ public class WebFluxConfig {
     public RouterFunction<ServerResponse> indexRouter() {
         return route(GET("/"), request ->
                 ServerResponse.ok().bodyValue("MCP Client is running."));
+    }
+
+    @Bean
+    public WebClient.Builder webClientBuilder() {
+        return WebClient.builder();
     }
 } 

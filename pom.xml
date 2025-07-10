@@ -20,7 +20,10 @@
     <modules>
         <module>mcp-router</module>
         <module>mcp-client</module>
+        <!-- <module>mcp-server</module> -->
+        <module>mcp-server-v1</module>
         <module>mcp-server-v2</module>
+        <module>mcp-server-v3</module>
     </modules>
 
     <properties>

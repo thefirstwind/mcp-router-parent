@@ -9,9 +9,9 @@
         <version>1.0.0</version>
     </parent>
 
-    <artifactId>mcp-server-v2</artifactId>
-    <name>MCP Server V2 Example</name>
-    <description>MCP Server V2 implementation with Spring AI Starters</description>
+    <artifactId>mcp-server-v3</artifactId>
+    <name>MCP Server V3 Example</name>
+    <description>MCP Server V3 implementation with Spring AI Starters</description>
 
     <dependencies>
         <!-- MCP Server WebFlux support -->
@@ -80,6 +80,12 @@
             <groupId>org.springframework.ai</groupId>
             <artifactId>spring-ai-core</artifactId>
         </dependency>
+        <dependency>
+            <groupId>com.nacos.mcp</groupId>
+            <artifactId>mcp-server-v1</artifactId>
+            <version>1.0.0</version>
+            <scope>compile</scope>
+        </dependency>
 
     </dependencies>
 
@@ -89,7 +95,7 @@
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
                 <configuration>
-                    <mainClass>com.nacos.mcp.server.v2.McpServerV2Application</mainClass>
+                    <mainClass>com.nacos.mcp.server.v3.McpServerV3Application</mainClass>
                 </configuration>
             </plugin>
             <plugin>
