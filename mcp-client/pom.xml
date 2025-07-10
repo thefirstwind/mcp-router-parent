@@ -11,18 +11,31 @@
 
     <artifactId>mcp-client</artifactId>
     <name>MCP Client Example</name>
-    <description>MCP Client implementation with Spring AI</description>
+    <description>MCP Client Example</description>
 
     <dependencies>
-        <!-- Spring Boot Web for REST endpoints -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-web</artifactId>
-        </dependency>
-
+        <!-- Spring Boot WebFlux Starter -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-webflux</artifactId>
+        </dependency>
+
+        <!-- Spring AI MCP Client -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-starter-mcp-client</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-starter-web</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <!-- Spring Boot Actuator for health checks -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
         
         <!-- Lombok for reducing boilerplate -->

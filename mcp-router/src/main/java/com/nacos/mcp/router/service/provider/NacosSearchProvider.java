@@ -72,16 +72,22 @@ public class NacosSearchProvider implements SearchProvider {
                 metadata = Collections.emptyMap();
             }
             
+            String contextPath = metadata.getOrDefault("context-path", "");
+            String serviceName = instance.getServiceName();
+            if (serviceName.contains("@@")) {
+                serviceName = serviceName.substring(serviceName.indexOf("@@") + 2);
+            }
+            
             return McpServer.builder()
-                    .name(instance.getServiceName())
+                    .name(serviceName)
                     .description(metadata.getOrDefault("description", "Unknown"))
                     .version(metadata.getOrDefault("version", "Unknown"))
                     .provider("Nacos")
                     .transportType(metadata.getOrDefault("transportType", "stdio"))
-                    .endpoint(String.format("http://%s:%d", instance.getIp(), instance.getPort()))
+                    .endpoint(String.format("http://%s:%d%s", instance.getIp(), instance.getPort(), contextPath))
                     .installCommand(metadata.getOrDefault("installCommand", ""))
                     .status(instance.isEnabled() ? McpServer.ServerStatus.CONNECTED : McpServer.ServerStatus.DISCONNECTED)
-                    .tools(parseTools(metadata.getOrDefault("tools", "")))
+                    .tools(Collections.emptyList()) // FIXME: Tools metadata is not available at registration time.
                     .metadata(metadata.isEmpty() ? Collections.emptyMap() : 
                             metadata.entrySet().stream()
                                     .collect(Collectors.toMap(
@@ -89,7 +95,7 @@ public class NacosSearchProvider implements SearchProvider {
                                             entry -> (Object) entry.getValue())))
                     .registrationTime(LocalDateTime.now())
                     .lastUpdateTime(LocalDateTime.now())
-                    .relevanceScore(0.0)
+                    .relevanceScore(1.0)
                     .build();
         } catch (Exception e) {
             log.warn("Failed to convert instance to MCP server for instance: {}", instance, e);
@@ -98,6 +104,7 @@ public class NacosSearchProvider implements SearchProvider {
     }
 
     private List<McpTool> parseTools(String toolsJson) {
+        // This method is now effectively unused for Nacos provider due to initialization order issues.
         if (toolsJson == null || toolsJson.isEmpty()) {
             return Collections.emptyList();
         }

@@ -1,30 +1,35 @@
 package com.nacos.mcp.client.controller;
 
+import com.nacos.mcp.client.service.McpRouterService;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
 import java.util.Map;
 
+@Slf4j
 @RestController
 @RequestMapping("/mcp-client/api/v1")
 public class PersonController {
 
-    private final com.nacos.mcp.client.service.McpRouterService mcpRouterService;
+    private final McpRouterService mcpRouterService;
 
-    public PersonController(com.nacos.mcp.client.service.McpRouterService mcpRouterService) {
+    public PersonController(McpRouterService mcpRouterService) {
         this.mcpRouterService = mcpRouterService;
     }
 
     @GetMapping("/tools/list")
-    public Mono<String> listAllTools() {
-        return mcpRouterService.listAllTools();
+    public Mono<ResponseEntity<String>> listTools(@RequestParam(defaultValue = "all") String task) {
+        return mcpRouterService.listTools(task)
+                .map(ResponseEntity::ok)
+                .onErrorResume(e -> Mono.just(ResponseEntity.status(500).body(e.getMessage())));
     }
 
     @PostMapping("/tools/call")
-    public Mono<String> callTool(@RequestBody Map<String, Object> payload) {
-        String toolName = (String) payload.get("toolName");
-        // This is a simplification. In a real scenario, you would need to figure out which server has the tool.
-        // For the demo, we'll assume the tool is on the v2 server.
-        return mcpRouterService.call("mcp-server-v2", toolName, payload.get("arguments").toString());
+    public Mono<ResponseEntity<String>> callTool(@RequestBody String jsonPayload) {
+        return mcpRouterService.callTool(jsonPayload)
+                .map(ResponseEntity::ok)
+                .onErrorResume(e -> Mono.just(ResponseEntity.status(500).body(e.getMessage())));
     }
 
     @GetMapping("/completions")

@@ -28,5 +28,6 @@ public class NacosRegistrationConfig implements ApplicationListener<ApplicationR
         metadata.put("version", environment.getProperty("spring.ai.mcp.server.version", ""));
         metadata.put("transportType", environment.getProperty("spring.ai.mcp.server.transport-type", ""));
         metadata.put("tools", environment.getProperty("spring.ai.mcp.server.tools", ""));
+        metadata.put("context-path", environment.getProperty("server.servlet.context-path", ""));
     }
 } 

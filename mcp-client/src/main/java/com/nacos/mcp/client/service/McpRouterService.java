@@ -1,16 +1,31 @@
 package com.nacos.mcp.client.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
+import java.util.HashMap;
+import java.util.Map;
+
+@Slf4j
 @Service
 public class McpRouterService {
 
     private final WebClient webClient;
+    private final ObjectMapper objectMapper;
 
-    public McpRouterService(WebClient.Builder webClientBuilder) {
-        this.webClient = webClientBuilder.baseUrl("http://localhost:8050/api/mcp").build();
+    @Value("${mcp.router.url:http://localhost:8050}")
+    private String routerUrl;
+
+    public McpRouterService(WebClient.Builder webClientBuilder, ObjectMapper objectMapper) {
+        this.webClient = webClientBuilder.build();
+        this.objectMapper = objectMapper;
     }
 
     public Mono<String> getCompletions(String model, String prompt) {
@@ -134,5 +149,37 @@ public class McpRouterService {
                 .uri("/search?taskDescription=all")
                 .retrieve()
                 .bodyToMono(String.class);
+    }
+
+    public Mono<String> listTools(String task) {
+        return this.webClient.get()
+                .uri(routerUrl + "/api/mcp/search?taskDescription={task}", task)
+                .retrieve()
+                .bodyToMono(String.class);
+    }
+
+    public Mono<String> callTool(String jsonPayload) {
+        try {
+            JsonNode rootNode = objectMapper.readTree(jsonPayload);
+            String serverName = rootNode.get("serverName").asText();
+            String toolName = rootNode.get("toolName").asText();
+            JsonNode argsNode = rootNode.get("arguments");
+
+            Map<String, Object> requestBody = new HashMap<>();
+            requestBody.put("serverName", serverName);
+            requestBody.put("toolName", toolName);
+            requestBody.put("arguments", argsNode);
+
+            return this.webClient.post()
+                    .uri(routerUrl + "/api/v1/jsonrpc")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .bodyValue(requestBody)
+                    .retrieve()
+                    .bodyToMono(String.class);
+
+        } catch (JsonProcessingException e) {
+            log.error("Failed to parse JSON payload for tool call", e);
+            return Mono.error(e);
+        }
     }
 } 
