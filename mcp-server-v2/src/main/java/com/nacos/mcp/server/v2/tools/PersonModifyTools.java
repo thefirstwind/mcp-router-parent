@@ -5,6 +5,7 @@ import com.nacos.mcp.server.v2.repository.PersonRepository;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.stereotype.Component;
+import reactor.core.publisher.Mono;
 
 import java.util.Optional;
 
@@ -18,7 +19,7 @@ public class PersonModifyTools {
     }
 
     @Tool(description = "Add a new person to the repository")
-    public Person addPerson(
+    public Mono<Person> addPerson(
         @ToolParam(description = "The first name of the person")
         String firstName,
         @ToolParam(description = "The last name of the person")
@@ -40,10 +41,10 @@ public class PersonModifyTools {
     }
 
     @Tool(description = "Delete a person by their ID")
-    public void deletePerson(
+    public Mono<Void> deletePerson(
         @ToolParam(description = "The ID of the person to delete")
         Long id
     ) {
-        personRepository.deleteById(id);
+        return personRepository.deleteById(id);
     }
 }

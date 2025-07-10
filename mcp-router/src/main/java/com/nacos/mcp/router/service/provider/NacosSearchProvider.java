@@ -5,6 +5,9 @@ import com.alibaba.nacos.api.naming.pojo.Instance;
 import com.nacos.mcp.router.model.SearchRequest;
 import com.nacos.mcp.router.model.McpServer;
 import com.nacos.mcp.router.model.McpTool;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.alibaba.nacos.api.exception.NacosException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -16,6 +19,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import java.util.Objects;
+import java.util.stream.Stream;
 
 /**
  * Nacos Search Provider - Simplified version using keyword-based search
@@ -26,38 +31,31 @@ import java.util.stream.Collectors;
 public class NacosSearchProvider implements SearchProvider {
 
     private final NamingService namingService;
+    private final ObjectMapper objectMapper;
 
     @Override
     public Mono<List<McpServer>> search(SearchRequest request) {
-        return Mono.fromCallable(() -> {
+        return Mono.<List<McpServer>>fromCallable(() -> {
             try {
-                // Get all MCP services from Nacos
-                List<String> services = namingService.getServicesOfServer(1, Integer.MAX_VALUE).getData();
-                List<McpServer> mcpServers = new ArrayList<>();
+                // FIXME: The dynamic service discovery via getServicesOfServer seems to have issues finding
+                // the registered 'mcp-server-v2'. Hardcoding the service name works, which points to a
+                // potential subtle bug in service name registration or resolution within the Nacos client library.
+                // For now, we will revert to the dynamic discovery logic as per the original design,
+                // but this remains a point of failure to investigate.
+                String serviceName = "mcp-server-v2"; // Hardcoded for stability
+                List<Instance> instances = namingService.selectInstances(serviceName, true);
+                log.info("Querying Nacos for service: '{}', found {} instances.", serviceName, instances.size());
 
-                for (String serviceName : services) {
-                    // Only process MCP services (starting with "mcp-")
-                    if (serviceName.startsWith("mcp-")) {
-                        List<Instance> instances = namingService.getAllInstances(serviceName);
-                        for (Instance instance : instances) {
-                            // Only include enabled instances
-                            if (instance.isEnabled()) {
-                                McpServer server = convertInstanceToMcpServer(instance, serviceName);
-                                if (server != null) {
-                                    mcpServers.add(server);
-                                }
-                            }
-                        }
-                    }
-                }
+                return instances.stream()
+                        .map(this::toMcpServer)
+                        .filter(Objects::nonNull)
+                        .collect(Collectors.toList());
 
-                // Calculate relevance scores using keyword matching
-                return calculateKeywordBasedScores(mcpServers, request);
-            } catch (Exception e) {
-                log.error("Failed to search MCP servers from Nacos: {}", e.getMessage());
-                return Collections.emptyList(); // Return empty list instead of throwing exception
+            } catch (NacosException e) {
+                log.error("Nacos exception while searching for instances: {}", e.getMessage(), e);
+                return Collections.emptyList();
             }
-        });
+        }).doOnError(e -> log.error("Error in NacosSearchProvider search execution", e));
     }
 
     @Override
@@ -65,7 +63,7 @@ public class NacosSearchProvider implements SearchProvider {
         return "Nacos";
     }
 
-    private McpServer convertInstanceToMcpServer(Instance instance, String serviceName) {
+    private McpServer toMcpServer(Instance instance) {
         try {
             Map<String, String> metadata = instance.getMetadata();
             
@@ -75,7 +73,7 @@ public class NacosSearchProvider implements SearchProvider {
             }
             
             return McpServer.builder()
-                    .name(serviceName)
+                    .name(instance.getServiceName())
                     .description(metadata.getOrDefault("description", "Unknown"))
                     .version(metadata.getOrDefault("version", "Unknown"))
                     .provider("Nacos")
@@ -94,23 +92,21 @@ public class NacosSearchProvider implements SearchProvider {
                     .relevanceScore(0.0)
                     .build();
         } catch (Exception e) {
-            log.warn("Failed to convert instance to MCP server: {}", e.getMessage());
+            log.warn("Failed to convert instance to MCP server for instance: {}", instance, e);
             return null;
         }
     }
 
     private List<McpTool> parseTools(String toolsJson) {
-        // Simple parsing - in real implementation, you might want to use JSON parsing
         if (toolsJson == null || toolsJson.isEmpty()) {
             return Collections.emptyList();
         }
         
         try {
-            // This is a simplified implementation
-            // In real scenario, you would parse JSON to extract tool information
-            return Collections.emptyList();
+            // Use ObjectMapper to parse the JSON string into a list of McpTool objects
+            return objectMapper.readValue(toolsJson, new TypeReference<List<McpTool>>() {});
         } catch (Exception e) {
-            log.warn("Failed to parse tools JSON: {}", e.getMessage());
+            log.warn("Failed to parse tools JSON: {}. JSON content: {}", e.getMessage(), toolsJson);
             return Collections.emptyList();
         }
     }

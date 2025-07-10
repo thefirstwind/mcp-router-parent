@@ -13,12 +13,16 @@ import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import com.nacos.mcp.router.service.provider.InMemorySearchProvider;
+import com.nacos.mcp.router.service.provider.NacosSearchProvider;
+import reactor.core.scheduler.Schedulers;
 
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.Collections;
+import java.util.stream.Stream;
 
 /**
  * Search Service Implementation
@@ -31,9 +35,9 @@ public class SearchServiceImpl implements SearchService {
     private final McpRouterProperties mcpRouterProperties;
     // private final ChatClient chatClient; // Temporarily disabled
 
-    public SearchServiceImpl(InMemorySearchProvider inMemorySearchProvider,
+    public SearchServiceImpl(List<SearchProvider> searchProviders,
                            McpRouterProperties mcpRouterProperties) {
-        this.searchProviders = List.of(inMemorySearchProvider);
+        this.searchProviders = searchProviders;
         this.mcpRouterProperties = mcpRouterProperties;
         // this.chatClient = chatClient; // Temporarily disabled
     }
@@ -53,11 +57,14 @@ public class SearchServiceImpl implements SearchService {
             request.setLimit(mcpRouterProperties.getSearch().getResultLimit());
         }
 
-        // Search using all providers
+        // Search using all providers, ensuring blocking operations are on a dedicated scheduler
         return Flux.fromIterable(searchProviders)
                 .flatMap(provider -> provider.search(request)
+                        // This is the key fix: If a provider (like Nacos) might block,
+                        // it must be subscribed on a scheduler that can handle it.
+                        .subscribeOn(Schedulers.boundedElastic())
                         .onErrorResume(throwable -> {
-                            log.warn("Search provider {} failed: {}", 
+                            log.warn("Search provider {} failed: {}",
                                     provider.getClass().getSimpleName(), throwable.getMessage());
                             return Mono.empty();
                         }))
@@ -69,7 +76,7 @@ public class SearchServiceImpl implements SearchService {
                             .collect(Collectors.toMap(
                                     McpServer::getName,
                                     server -> server,
-                                    (existing, replacement) -> 
+                                    (existing, replacement) ->
                                             (existing.getRelevanceScore() != null && replacement.getRelevanceScore() != null && existing.getRelevanceScore() >= replacement.getRelevanceScore())
                                                     ? existing : replacement))
                             .values()

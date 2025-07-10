@@ -5,6 +5,8 @@ import com.nacos.mcp.server.v2.repository.PersonRepository;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.stereotype.Component;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -20,15 +22,15 @@ public class PersonQueryTools {
     }
 
     @Tool(description = "Get a person by their ID")
-    public Person getPersonById(
+    public Mono<Person> getPersonById(
         @ToolParam(description = "The ID of the person to retrieve")
         Long id
     ) {
-        return personRepository.findById(id).orElse(null);
+        return personRepository.findById(id);
     }
 
     @Tool(description = "Get all persons with a specific nationality")
-    public List<Person> getPersonsByNationality(
+    public Flux<Person> getPersonsByNationality(
         @ToolParam(description = "The nationality to filter by")
         String nationality
     ) {
@@ -36,13 +38,12 @@ public class PersonQueryTools {
     }
 
     @Tool(description = "Get a list of all persons in the repository")
-    public List<Person> getAllPersons() {
-        return StreamSupport.stream(personRepository.findAll().spliterator(), false)
-                .collect(Collectors.toList());
+    public Flux<Person> getAllPersons() {
+        return personRepository.findAll();
     }
 
     @Tool(description = "Count the number of persons with a specific nationality")
-    public int countByNationality(
+    public Mono<Integer> countByNationality(
         @ToolParam(description = "The nationality to count")
         String nationality
     ) {

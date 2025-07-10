@@ -1,13 +1,16 @@
 package com.nacos.mcp.server.v2.repository;
 
 import com.nacos.mcp.server.v2.model.Person;
-import org.springframework.data.repository.CrudRepository;
-import org.springframework.stereotype.Repository;
+import org.springframework.data.r2dbc.repository.Query;
+import org.springframework.data.repository.reactive.ReactiveCrudRepository;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
-import java.util.List;
+public interface PersonRepository extends ReactiveCrudRepository<Person, Long> {
 
-@Repository
-public interface PersonRepository extends CrudRepository<Person, Long> {
-    List<Person> findByNationality(String nationality);
-    int countByNationality(String nationality);
+    @Query("SELECT * FROM person WHERE nationality = :nationality")
+    Flux<Person> findByNationality(String nationality);
+
+    @Query("SELECT COUNT(*) FROM person WHERE nationality = :nationality")
+    Mono<Integer> countByNationality(String nationality);
 }
