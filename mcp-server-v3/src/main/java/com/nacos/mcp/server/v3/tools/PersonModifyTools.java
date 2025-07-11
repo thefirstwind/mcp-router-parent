@@ -18,7 +18,7 @@ public class PersonModifyTools {
         this.personRepository = personRepository;
     }
 
-    @Tool(name = "addPerson_v3", description = "Add a new person to the repository (v3)")
+    @Tool(name = "addPerson_v3", description = "Add a new person to the repository (v3 server)")
     public Mono<Person> addPerson(
         @ToolParam(description = "The first name of the person")
         String firstName,
@@ -40,7 +40,7 @@ public class PersonModifyTools {
         return personRepository.save(newPerson);
     }
 
-    @Tool(name = "deletePerson_v3", description = "Delete a person by their ID (v3)")
+    @Tool(name = "deletePerson_v3", description = "Delete a person by their ID (v3 server)")
     public Mono<Void> deletePerson(
         @ToolParam(description = "The ID of the person to delete")
         Long id

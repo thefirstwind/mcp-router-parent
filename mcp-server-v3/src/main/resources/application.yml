@@ -1,8 +1,8 @@
 # Spring Boot
 server:
   port: 8062
-  servlet:
-    context-path: /mcp-server-v3
+  # servlet:
+  #   context-path: /mcp-server-v3
 
 spring:
   application:
@@ -30,6 +30,10 @@ spring:
         version: "1.0.0"
         transport-type: sse # Use sse for reactive transport
         enabled: true
+        # endpoint: /sse
+        sse-message-endpoint: /mcp/message
+        type: ASYNC
+
   cloud:
     nacos:
       discovery:

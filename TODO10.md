@@ -10,6 +10,13 @@ https://docs.spring.io/spring-ai/reference/api/mcp/mcp-server-boot-starter-docs.
 https://docs.spring.io/spring-ai/reference/api/mcp/mcp-helpers.html
 https://docs.spring.io/spring-ai/reference/api/mcp/mcp-client-boot-starter-docs.html
 
+项目结构：
+mcp-client: 端口8070
+mcp-router: 端口8050
+mcp-server-v1: 端口8060
+mcp-server-v2: 端口8061
+mcp-server-v3: 端口8062
+mcp-server：废弃
 
 mcp-server-v2 中放开tool和toolParam注释，需要声明mcp server，这是核心逻辑
 mcp-server-v2启动后，通过mcp-router注册到nacos中
@@ -44,7 +51,15 @@ mcp-client验证方法如下：
     -d '{"toolName": "list_servers", "arguments": {}}'
 
 
-参考mcp-server-v2 创建 mcp-server-v1 和 mcp-servcer-v3,为了与mcp-server-v2区分开，tools的名称 要改一下，这两个项目启动之后，都要注册到 nacos上，可以通过mcp-client调用
+mcp-server-v2 mcp-server-v1 和 mcp-servcer-v3,都要注册到 nacos上，可以通过mcp-client调用
+
+mcp-client调用方法： getAllPersons, addPerson, deletePerson，验证是否能通过 mcp-router用sse方式调用mcp-server，操作数据库
+
+要使mcp-client能够通过mcp-router用SSE方式调用mcp-server操作数据库，需要：
+修复mcp-client的实现：使用McpAsyncClient替代当前的WebClient HTTP调用
+修复mcp-router的路由实现：使用MCP协议的SSE通信替代HTTP POST
+确保符合MCP规约：所有模块间通信必须遵循MCP标准协议
+结论：虽然服务架构和发现机制正常工作，但核心的MCP协议通信实现需要重构以符合TODO10.md的要求。当前项目距离真正的MCP协议实现还有关键差距。
 
 
 好的，我已经详细分析了 `TODO10.md` 文档并审视了当前项目的状况。以下是我的分析和修复问题的总结：

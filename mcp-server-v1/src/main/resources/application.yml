@@ -1,8 +1,8 @@
 # Spring Boot
 server:
   port: 8060
-  servlet:
-    context-path: /mcp-server-v1
+  # servlet:
+  #   context-path: /mcp-server-v1
 
 spring:
   application:
@@ -28,8 +28,12 @@ spring:
         name: "mcp-server-v1"
         description: "MCP Server V1 with Person Tools"
         version: "1.0.0"
-        transport-type: sse # Use sse for reactive transport
+        transport-type: sse
         enabled: true
+        # endpoint: /sse
+        sse-message-endpoint: /mcp/message
+        type: ASYNC
+
   cloud:
     nacos:
       discovery:

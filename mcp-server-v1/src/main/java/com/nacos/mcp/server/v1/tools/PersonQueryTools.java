@@ -21,7 +21,7 @@ public class PersonQueryTools {
         this.personRepository = personRepository;
     }
 
-    @Tool(name = "getPersonById_v1", description = "Get a person by their ID (v1)")
+    @Tool(name = "getPersonById_v1", description = "Get a person by their ID (v1 server)")
     public Mono<Person> getPersonById(
         @ToolParam(description = "The ID of the person to retrieve")
         Long id
@@ -29,7 +29,7 @@ public class PersonQueryTools {
         return personRepository.findById(id);
     }
 
-    @Tool(name = "getPersonsByNationality_v1", description = "Get all persons with a specific nationality (v1)")
+    @Tool(name = "getPersonsByNationality_v1", description = "Get all persons with a specific nationality (v1 server)")
     public Flux<Person> getPersonsByNationality(
         @ToolParam(description = "The nationality to filter by")
         String nationality
@@ -37,12 +37,12 @@ public class PersonQueryTools {
         return personRepository.findByNationality(nationality);
     }
 
-    @Tool(name = "getAllPersons_v1", description = "Get a list of all persons in the repository (v1)")
+    @Tool(name = "getAllPersons_v1", description = "Get a list of all persons in the repository (v1 server)")
     public Flux<Person> getAllPersons() {
         return personRepository.findAll();
     }
 
-    @Tool(name = "countByNationality_v1", description = "Count the number of persons with a specific nationality (v1)")
+    @Tool(name = "countByNationality_v1", description = "Count the number of persons with a specific nationality (v1 server)")
     public Mono<Integer> countByNationality(
         @ToolParam(description = "The nationality to count")
         String nationality

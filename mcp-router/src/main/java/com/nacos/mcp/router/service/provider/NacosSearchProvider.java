@@ -37,22 +37,32 @@ public class NacosSearchProvider implements SearchProvider {
     public Mono<List<McpServer>> search(SearchRequest request) {
         return Mono.<List<McpServer>>fromCallable(() -> {
             try {
-                // FIXME: The dynamic service discovery via getServicesOfServer seems to have issues finding
-                // the registered 'mcp-server-v2'. Hardcoding the service name works, which points to a
-                // potential subtle bug in service name registration or resolution within the Nacos client library.
-                // For now, we will revert to the dynamic discovery logic as per the original design,
-                // but this remains a point of failure to investigate.
-                String serviceName = "mcp-server-v2"; // Hardcoded for stability
-                List<Instance> instances = namingService.selectInstances(serviceName, true);
-                log.info("Querying Nacos for service: '{}', found {} instances.", serviceName, instances.size());
+                // 动态发现所有mcp-server服务
+                List<String> mcpServiceNames = List.of("mcp-server-v1", "mcp-server-v2", "mcp-server-v3");
+                List<McpServer> allServers = new ArrayList<>();
+                
+                for (String serviceName : mcpServiceNames) {
+                    try {
+                        List<Instance> instances = namingService.selectInstances(serviceName, true);
+                        log.info("Querying Nacos for service: '{}', found {} instances.", serviceName, instances.size());
+                        
+                        List<McpServer> serviceServers = instances.stream()
+                                .map(this::toMcpServer)
+                                .filter(Objects::nonNull)
+                                .collect(Collectors.toList());
+                        
+                        allServers.addAll(serviceServers);
+                    } catch (NacosException e) {
+                        log.warn("Failed to query Nacos for service '{}': {}", serviceName, e.getMessage());
+                        // 继续处理其他服务，不因为一个服务失败而全部失败
+                    }
+                }
+                
+                log.info("Total discovered MCP servers: {}", allServers.size());
+                return allServers;
 
-                return instances.stream()
-                        .map(this::toMcpServer)
-                        .filter(Objects::nonNull)
-                        .collect(Collectors.toList());
-
-            } catch (NacosException e) {
-                log.error("Nacos exception while searching for instances: {}", e.getMessage(), e);
+            } catch (Exception e) {
+                log.error("Unexpected error in NacosSearchProvider search execution: {}", e.getMessage(), e);
                 return Collections.emptyList();
             }
         }).doOnError(e -> log.error("Error in NacosSearchProvider search execution", e));
