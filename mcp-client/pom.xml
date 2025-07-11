@@ -32,6 +32,11 @@
             <artifactId>spring-ai-core</artifactId>
         </dependency>
 
+        <!-- Spring AI MCP Client support (for SSE connections to servers) -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-starter-mcp-client</artifactId>
+        </dependency>
 
 
         <!-- MCP Router dependency for shared models -->

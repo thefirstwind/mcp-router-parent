@@ -47,6 +47,12 @@
                 </exclusion>
             </exclusions>
         </dependency>
+
+        <!-- Spring AI MCP Client support (for SSE connections to servers) -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-starter-mcp-client-webflux</artifactId>
+        </dependency>
         
         <!-- Nacos discovery and config starters are removed to bypass connection issues -->
 

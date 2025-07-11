@@ -238,44 +238,15 @@ public class McpToolService {
         
         int maxResults = limit != null ? limit : 10;
         
-        // Mock search results - in real implementation, this would search Nacos registry
-        List<Map<String, Object>> results = new ArrayList<>();
-        
-        Map<String, Object> dbServer = new HashMap<>();
-        dbServer.put("serviceName", "mcp-database-server");
-        dbServer.put("status", "UP");
-        dbServer.put("instances", 2);
-        dbServer.put("transport", "sse");
-        dbServer.put("description", "Database MCP Server");
-        
-        Map<String, Object> fileServer = new HashMap<>();
-        fileServer.put("serviceName", "mcp-file-server");
-        fileServer.put("status", "UP");
-        fileServer.put("instances", 1);
-        fileServer.put("transport", "stdio");
-        fileServer.put("description", "File System MCP Server");
-        
-        Map<String, Object> searchServer = new HashMap<>();
-        searchServer.put("serviceName", "mcp-search-server");
-        searchServer.put("status", "DOWN");
-        searchServer.put("instances", 0);
-        searchServer.put("transport", "sse");
-        searchServer.put("description", "Search MCP Server");
-        
-        results.add(dbServer);
-        results.add(fileServer);
-        results.add(searchServer);
-        
-        List<Map<String, Object>> filteredResults = results.stream()
-            .filter(server -> server.get("serviceName").toString().toLowerCase().contains(query.toLowerCase()))
-            .limit(maxResults)
-            .collect(Collectors.toList());
+        // TODO: In a real implementation, this would search via SSE protocol and Nacos registry
+        // For now, we return empty results as mock data has been removed per TODO10.md requirements
+        log.warn("MCP server search not yet implemented for SSE protocol - returning empty list");
         
         Map<String, Object> response = new HashMap<>();
         response.put("query", query);
         response.put("limit", maxResults);
-        response.put("results", filteredResults);
-        response.put("count", filteredResults.size());
+        response.put("results", new ArrayList<>());
+        response.put("count", 0);
         response.put("timestamp", System.currentTimeMillis());
         
         return response;

@@ -16,12 +16,26 @@ spring:
       chat:
         options:
           model: deepseek-chat
+    mcp:
+      client:
+        enabled: true
+        name: mcp-client-app
+        version: 1.0.0
+        type: SYNC
+        request-timeout: 30s
+        sse:
+          connections:
+            router:
+              url: http://localhost:8050
+              sse-endpoint: /sse
 
 logging:
   level:
     org.springframework.ai: DEBUG
     com.nacos.mcp.client: DEBUG
     org.springframework.ai.mcp: DEBUG
+    com.nacos.mcp: DEBUG
+    root: INFO
 management:
   endpoints:
     web:

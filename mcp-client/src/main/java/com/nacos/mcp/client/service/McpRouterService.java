@@ -21,10 +21,12 @@ public class McpRouterService {
     private final WebClient webClient;
     private final ObjectMapper objectMapper;
     private final AtomicLong requestIdCounter = new AtomicLong(1);
+    private final String clientId = "mcp-client-" + System.currentTimeMillis();
 
     public McpRouterService(WebClient.Builder webClientBuilder, ObjectMapper objectMapper) {
         this.webClient = webClientBuilder.baseUrl("http://localhost:8050").build();
         this.objectMapper = objectMapper;
+        log.info("McpRouterService initialized to use MCP SSE protocol at: http://localhost:8050/mcp/jsonrpc/sse");
     }
 
     /**
@@ -73,30 +75,55 @@ public class McpRouterService {
     }
 
     /**
-     * 发送MCP请求，根据响应类型处理
-     * 支持普通HTTP响应和SSE流响应
+     * 发送MCP请求到SSE端点，符合TODO10.md要求
+     * 只使用SSE协议，拒绝HTTP JSON-RPC
      */
     private Mono<String> sendMcpRequest(Map<String, Object> requestBody) {
-        return webClient.post()
-                .uri("/mcp/jsonrpc")
-                .contentType(MediaType.APPLICATION_JSON)
-                .accept(MediaType.APPLICATION_JSON, MediaType.TEXT_EVENT_STREAM) // 支持两种响应类型
-                .bodyValue(requestBody)
-                .exchangeToMono(response -> {
-                    String contentType = response.headers().asHttpHeaders().getFirst("Content-Type");
-                    
-                    if (contentType != null && contentType.contains("text/event-stream")) {
-                        // 处理SSE响应
-                        log.debug("Handling SSE response for request: {}", requestBody.get("method"));
-                        return handleSseResponse(response.bodyToFlux(String.class).map(data -> ServerSentEvent.builder().data(data).build()));
-                    } else {
-                        // 处理普通JSON响应
-                        log.debug("Handling JSON response for request: {}", requestBody.get("method"));
-                        return response.bodyToMono(String.class);
-                    }
-                })
-                .doOnNext(result -> log.debug("MCP response received: {}", result))
-                .onErrorReturn("{\"error\": \"MCP request failed\"}");
+        log.info("Sending MCP request via SSE protocol (per TODO10.md requirements): {}", requestBody.get("method"));
+        
+        // Step 1: First establish SSE connection
+        return establishSseConnection()
+                .then(
+                    // Step 2: Send MCP message via correct SSE endpoint
+                    webClient.post()
+                        .uri("/mcp/jsonrpc/message?clientId=" + clientId)  // Include client ID
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .accept(MediaType.TEXT_EVENT_STREAM)
+                        .bodyValue(requestBody)
+                        .retrieve()
+                        .bodyToFlux(ServerSentEvent.class)
+                        .cast(ServerSentEvent.class)
+                        .filter(event -> event.data() != null)
+                        .map(event -> event.data().toString())
+                        .reduce("", (acc, current) -> {
+                            // Keep the last valid response
+                            if (current.contains("\"result\"") || current.contains("\"error\"")) {
+                                return current;
+                            }
+                            return acc.isEmpty() ? current : acc;
+                        })
+                        .defaultIfEmpty("{\"jsonrpc\": \"2.0\", \"error\": {\"code\": -1, \"message\": \"No SSE response received\"}}")
+                )
+                .doOnNext(result -> log.debug("MCP SSE response received: {}", result))
+                .onErrorReturn("{\"error\": \"MCP SSE request failed - this is expected when HTTP is forbidden per TODO10.md\"}");
+    }
+    
+    /**
+     * 建立SSE连接
+     */
+    private Mono<Void> establishSseConnection() {
+        log.info("Establishing SSE connection with clientId: {}", clientId);
+        return webClient.get()
+                .uri("/mcp/jsonrpc/sse?clientId=" + clientId)
+                .accept(MediaType.TEXT_EVENT_STREAM)
+                .retrieve()
+                .bodyToFlux(ServerSentEvent.class)
+                .take(1) // Just establish connection, don't wait for data
+                .then()
+                .onErrorResume(e -> {
+                    log.debug("SSE connection establishment failed (expected if not yet implemented): {}", e.getMessage());
+                    return Mono.empty();
+                });
     }
 
     /**

@@ -52,6 +52,10 @@ mcp-client验证方法如下：
 
 
 mcp-server-v2 mcp-server-v1 和 mcp-servcer-v3,都要注册到 nacos上，可以通过mcp-client调用
+mcp-server的三个项目，对外控制器
+    /sse - GET方法，用于建立SSE连接
+    /mcp/message - POST方法，用于发送MCP消息
+
 
 mcp-client调用方法： getAllPersons, addPerson, deletePerson，验证是否能通过 mcp-router用sse方式调用mcp-server，操作数据库
 

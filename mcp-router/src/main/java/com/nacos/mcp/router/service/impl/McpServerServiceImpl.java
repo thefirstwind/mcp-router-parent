@@ -6,14 +6,11 @@ import com.nacos.mcp.router.service.McpServerService;
 import com.nacos.mcp.router.service.provider.SearchProvider;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
-import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -23,13 +20,13 @@ import java.util.stream.Collectors;
 @Service
 public class McpServerServiceImpl implements McpServerService {
 
-    private final WebClient.Builder webClientBuilder;
     private final List<SearchProvider> searchProviders;
     private final ConcurrentHashMap<String, McpServer> registeredServers = new ConcurrentHashMap<>();
+    // TODO: Add MCP client manager for SSE connections
+    // private final McpClientManager mcpClientManager;
 
     @Autowired
-    public McpServerServiceImpl(WebClient.Builder webClientBuilder, List<SearchProvider> searchProviders) {
-        this.webClientBuilder = webClientBuilder;
+    public McpServerServiceImpl(List<SearchProvider> searchProviders) {
         this.searchProviders = searchProviders;
     }
 
@@ -45,16 +42,17 @@ public class McpServerServiceImpl implements McpServerService {
                     }
 
                     log.info("Found server '{}' at endpoint: {}", server.getName(), server.getEndpoint());
-                    WebClient webClient = webClientBuilder.baseUrl(server.getEndpoint()).build();
 
-                    return webClient.post()
-                            .uri("/tools/call")
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .bodyValue(Map.of("toolName", toolName, "arguments", params))
-                            .retrieve()
-                            .bodyToMono(Object.class)
-                            .doOnError(e -> log.error("Failed to call tool '{}' on server '{}'. Endpoint: {}, Error: {}",
-                                    toolName, serverName, server.getEndpoint(), e.getMessage()));
+                    // TODO: Replace HTTP call with MCP SSE client connection per TODO10.md requirements
+                    // This violates MCP protocol - should use SSE not HTTP
+                    log.error("❌ PROTOCOL VIOLATION: Using HTTP instead of MCP SSE protocol for tool call to server '{}' tool '{}'", 
+                            serverName, toolName);
+                    log.error("❌ TODO10.md requirement: mcp-router连接 mcp-server拒绝使用http，改成sse");
+                    
+                    return Mono.error(new RuntimeException(
+                            "Protocol violation: HTTP calls to MCP servers are forbidden. " +
+                            "Must use MCP SSE protocol per TODO10.md requirements. " +
+                            "Tool: " + toolName + ", Server: " + serverName));
                 });
     }
 
